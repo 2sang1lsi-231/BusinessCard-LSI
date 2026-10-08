@@ -1,10 +1,10 @@
 name: Build Android APK
-
 on:
   workflow_dispatch:
   push:
     branches: [ main ]
-
+permissions:
+  contents: read
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -17,11 +17,15 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
-      - name: Build installable APK
-        run: gradle :app:assembleDebug --no-daemon --stacktrace
-      - name: Rename APK
-        run: cp app/build/outputs/apk/debug/app-debug.apk BusinessCard_LSI_v1.2.apk
+      - name: Build APK for private signing
+        run: gradle :app:assembleRelease --no-daemon --stacktrace
+      - name: Align APK and collect verification tools
+        run: |
+          mkdir package
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.3-unsigned.apk
+          cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.3-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v1.2_APK
-          path: BusinessCard_LSI_v1.2.apk
+          name: BusinessCard_LSI_v1.3_BUILD
+          path: package/
