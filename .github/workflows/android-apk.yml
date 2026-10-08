@@ -45,8 +45,8 @@ jobs:
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt
-            adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots
             cat device-checks.txt
+            adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots || true
             grep -q ALL_CHECKS_PASSED device-checks.txt
       - uses: actions/upload-artifact@v4
         if: always()
