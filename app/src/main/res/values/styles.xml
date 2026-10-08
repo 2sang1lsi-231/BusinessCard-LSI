@@ -1,0 +1,13 @@
+<resources>
+    <style name="AppTheme" parent="android:style/Theme.Material.Light.NoActionBar">
+        <item name="android:colorAccent">#2376B8</item>
+        <item name="android:alertDialogTheme">@style/CardAlertTheme</item>
+        <item name="android:dialogTheme">@style/CardDialogTheme</item>
+    </style>
+    <style name="CardAlertTheme" parent="android:style/Theme.Material.Light.Dialog.Alert">
+        <item name="android:colorAccent">#2376B8</item>
+    </style>
+    <style name="CardDialogTheme" parent="android:style/Theme.Material.Light.Dialog.NoActionBar">
+        <item name="android:colorAccent">#2376B8</item>
+    </style>
+</resources>
