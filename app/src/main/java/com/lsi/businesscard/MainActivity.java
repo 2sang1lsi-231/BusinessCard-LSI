@@ -25,7 +25,8 @@ public class MainActivity extends Activity {
 
     private void buildUi(){
         getWindow().setStatusBarColor(Color.rgb(13,71,161));
-        LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.rgb(245,246,248));root.setPadding(Ui.dp(this,12),Ui.dp(this,10),Ui.dp(this,12),Ui.dp(this,8));
+        getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_RESIZE|WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_HIDDEN);
+        LinearLayout root=new LinearLayout(this);root.setFocusableInTouchMode(true);root.requestFocus();root.setOrientation(LinearLayout.VERTICAL);root.setBackgroundColor(Color.rgb(245,246,248));root.setPadding(Ui.dp(this,12),Ui.dp(this,10),Ui.dp(this,12),Ui.dp(this,8));
         LinearLayout top=new LinearLayout(this);top.setGravity(Gravity.CENTER_VERTICAL);TextView title=Ui.text(this,"명함관리 LSI",22,true);top.addView(title,Ui.weight(1));count=Ui.badge(this,"");top.addView(count);root.addView(top,Ui.mp(this));
 
         search=Ui.edit(this,"이름 · 회사 · 전화 · 메모 검색");root.addView(search,Ui.mp(this));
