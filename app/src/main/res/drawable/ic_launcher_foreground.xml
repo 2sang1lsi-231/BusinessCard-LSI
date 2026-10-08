@@ -1,1 +1,1 @@
-<inset xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_launcher_art" android:insetLeft="16.67%" android:insetTop="16.67%" android:insetRight="16.67%" android:insetBottom="16.67%" />
+<inset xmlns:android="http://schemas.android.com/apk/res/android" android:drawable="@drawable/ic_launcher_art" android:insetLeft="12.5%" android:insetTop="12.5%" android:insetRight="12.5%" android:insetBottom="12.5%" />

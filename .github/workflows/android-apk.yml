@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ build/v1.4-safe-area ]
+    branches: [ build/v1.5-input-order ]
 permissions:
   contents: read
 jobs:
@@ -30,10 +30,10 @@ jobs:
       - name: Align APK and collect verification tools
         run: |
           mkdir package
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.4-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.5-unsigned.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.4-unsigned.apk > package/apk-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.5-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v1.4_BUILD
+          name: BusinessCard_LSI_v1.5_BUILD
           path: package/

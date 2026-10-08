@@ -15,10 +15,10 @@ import java.util.*;
 
 public class MainActivity extends Activity {
     private static final int REQ_XLSX_ZIP=101,REQ_ZIP=102,REQ_SAVE_BACKUP=103,REQ_RESTORE=104,REQ_XLSX_ONLY=105;
-    private DbHelper db; private EditText search; private ListView list; private TextView count; private Button favButton,groupButton;
+    private DbHelper db; private EditText search; private ListView list; private TextView count; private Button favButton,groupButton,sortButton; private int sortMode=1;
     private File camXlsx,pendingBackup; private boolean favoritesOnly=false; private String groupFilter="";
 
-    @Override public void onCreate(Bundle b){super.onCreate(b);db=new DbHelper(this);buildUi();refresh();}
+    @Override public void onCreate(Bundle b){super.onCreate(b);db=new DbHelper(this);sortMode=getPreferences(MODE_PRIVATE).getInt("sortMode",1);if(sortMode<0||sortMode>=DbHelper.SORT_LABELS.length)sortMode=1;buildUi();refresh();}
     @Override protected void onResume(){super.onResume();if(db!=null)refresh();}
 
     private void buildUi(){
@@ -32,6 +32,8 @@ public class MainActivity extends Activity {
         favButton.setOnClickListener(v->{favoritesOnly=!favoritesOnly;favButton.setText(favoritesOnly?"★ 즐겨찾기":"☆ 즐겨찾기");refresh();});
         groupButton.setOnClickListener(v->chooseGroup());
 
+        LinearLayout tools=new LinearLayout(this);sortButton=Ui.button(this,"정렬: "+DbHelper.SORT_LABELS[sortMode]);sortButton.setTextSize(13);Button scan=Ui.button(this,"명함 스캔");tools.addView(sortButton,Ui.weight(2));tools.addView(scan,Ui.weight(1));root.addView(tools,Ui.mp(this));
+        sortButton.setOnClickListener(v->chooseSort());scan.setOnClickListener(v->startActivity(new Intent(this,EditActivity.class).putExtra("scan",true)));
         list=new ListView(this);list.setDividerHeight(1);list.setBackgroundColor(Color.WHITE);TextView empty=Ui.text(this,"저장된 명함이 없습니다.\n아래 ‘가져오기’ 또는 ‘＋ 새 명함’을 사용하세요.",16,false);empty.setGravity(Gravity.CENTER);
         FrameLayout content=new FrameLayout(this);content.addView(list,new FrameLayout.LayoutParams(-1,-1));content.addView(empty,new FrameLayout.LayoutParams(-1,-1));list.setEmptyView(empty);root.addView(content,new LinearLayout.LayoutParams(-1,0,1));
         list.setOnItemClickListener((p,v,pos,id)->{Contact c=(Contact)p.getItemAtPosition(pos);startActivity(new Intent(this,DetailActivity.class).putExtra("id",c.id));});
@@ -40,7 +42,8 @@ public class MainActivity extends Activity {
         imp.setOnClickListener(v->showImportMenu());add.setOnClickListener(v->startActivity(new Intent(this,EditActivity.class)));bak.setOnClickListener(v->showBackupMenu());Ui.setContentView(this,root);
     }
 
-    private void refresh(){if(db==null||list==null)return;List<Contact> items=db.search(search==null?"":search.getText().toString(),favoritesOnly,groupFilter);list.setAdapter(new ContactAdapter(this,items));count.setText(items.size()+"명");}
+    private void refresh(){if(db==null||list==null)return;List<Contact> items=db.search(search==null?"":search.getText().toString(),favoritesOnly,groupFilter,sortMode);list.setAdapter(new ContactAdapter(this,items));count.setText(items.size()+"명");}
+    private void chooseSort(){new AlertDialog.Builder(this).setTitle("명함 정렬").setSingleChoiceItems(DbHelper.SORT_LABELS,sortMode,(d,w)->{sortMode=w;getPreferences(MODE_PRIVATE).edit().putInt("sortMode",w).apply();sortButton.setText("정렬: "+DbHelper.SORT_LABELS[w]);refresh();d.dismiss();}).setNegativeButton("취소",null).show();}
     private void chooseGroup(){List<String> g=db.groups();ArrayList<String>x=new ArrayList<>();x.add("전체");x.addAll(g);new AlertDialog.Builder(this).setTitle("그룹 선택").setItems(x.toArray(new String[0]),(d,w)->{groupFilter=w==0?"":x.get(w);groupButton.setText("그룹: "+(groupFilter.isEmpty()?"전체":groupFilter));refresh();}).show();}
 
     private void showImportMenu(){new AlertDialog.Builder(this).setTitle("가져오기").setItems(new String[]{"CamCard Excel + 명함 사진 ZIP","CamCard Excel만 가져오기","LSI 전체 백업 복원"},(d,w)->{camXlsx=null;if(w==0)pickFile(REQ_XLSX_ZIP,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","CamCard Excel 선택");else if(w==1)pickFile(REQ_XLSX_ONLY,"application/vnd.openxmlformats-officedocument.spreadsheetml.sheet","CamCard Excel 선택");else pickFile(REQ_RESTORE,"application/zip","LSI 백업 ZIP 선택");}).show();}

@@ -21,7 +21,7 @@ public class EditActivity extends Activity {
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);db=new DbHelper(this);long id=getIntent().getLongExtra("id",-1);c=id>0?db.get(id):new Contact();if(c==null)c=new Contact();isNew=c.id<=0;
-        originalFront=c.get("image_front");originalBack=c.get("image_back");build();
+        originalFront=c.get("image_front");originalBack=c.get("image_back");build();if(b==null&&isNew&&getIntent().getBooleanExtra("scan",false))startCamera(REQ_OCR_CAMERA);
     }
 
     private void build(){

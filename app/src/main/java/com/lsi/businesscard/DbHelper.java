@@ -84,7 +84,7 @@ public class DbHelper extends SQLiteOpenHelper {
         try { return c.moveToFirst() ? Contact.fromCursor(c) : null; } finally { c.close(); }
     }
 
-    public List<Contact> search(String q, boolean favoritesOnly, String group) {
+    public List<Contact> search(String q, boolean favoritesOnly, String group, int sort) {
         List<Contact> out = new ArrayList<>();
         ArrayList<String> parts = new ArrayList<>();
         ArrayList<String> args = new ArrayList<>();
@@ -100,11 +100,24 @@ public class DbHelper extends SQLiteOpenHelper {
         if (group != null && !group.isEmpty()) { parts.add("group_name=?"); args.add(group); }
         String where = parts.isEmpty() ? null : join(" AND ", parts);
         Cursor c = getReadableDatabase().query("contacts", null, where, args.isEmpty()?null:args.toArray(new String[0]), null, null,
-                "favorite DESC, CASE WHEN name='' THEN 1 ELSE 0 END, name COLLATE LOCALIZED ASC, company1 COLLATE LOCALIZED ASC");
+                orderFor(sort));
         try { while (c.moveToNext()) out.add(Contact.fromCursor(c)); } finally { c.close(); }
         return out;
     }
 
+    public static final String[] SORT_LABELS = {"입력순 · 먼저 입력한 순서", "입력순 · 최근 입력한 순서", "이름 · 가나다순", "이름 · 역순", "회사 · 가나다순", "회사 · 역순", "최근 수정한 순서"};
+    public static String orderFor(int sort) {
+        switch(sort) {
+            case 1: return "_id DESC";
+            case 2: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, name COLLATE LOCALIZED ASC, _id ASC";
+            case 3: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, name COLLATE LOCALIZED DESC, _id ASC";
+            case 4: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED ASC, _id ASC";
+            case 5: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED DESC, _id ASC";
+            case 6: return "CASE WHEN updated_at='' THEN 1 ELSE 0 END, updated_at DESC, _id DESC";
+            default: return "_id ASC";
+        }
+    }
+    public List<Contact> search(String q, boolean favoritesOnly, String group) { return search(q, favoritesOnly, group, 1); }
     public List<Contact> search(String q, boolean favoritesOnly) { return search(q, favoritesOnly, ""); }
 
     public List<String> groups() {
