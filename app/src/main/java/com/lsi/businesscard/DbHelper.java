@@ -188,6 +188,7 @@ public class DbHelper extends SQLiteOpenHelper {
     public void renameGroup(String old,String replacement){ContentValues v=new ContentValues();v.put("group_name",replacement);getWritableDatabase().update("contacts",v,"group_name=?",new String[]{old});}
     public void mergeAndDelete(long keep,long remove){
         Contact a=get(keep),b=get(remove);if(a==null||b==null||keep==remove)return;
+        Set<String> photos=new HashSet<>();for(String k:imageColumns()){if(!a.get(k).isEmpty())photos.add(a.get(k));if(!b.get(k).isEmpty())photos.add(b.get(k));}if(photos.size()>4)throw new IllegalArgumentException("사진이 네 장을 초과해 자동 병합할 수 없습니다. 두 명함을 따로 유지하세요.");
         // Keep differing contact details in a note rather than silently losing them.
         StringBuilder conflicts=new StringBuilder();for(String k:TEXT_COLUMNS)if(!k.startsWith("image_")&&!k.equals("updated_at")&&!k.equals("created_at")&&!a.get(k).isEmpty()&&!b.get(k).isEmpty()&&!a.get(k).equals(b.get(k)))conflicts.append(k).append(": ").append(b.get(k)).append("\n");
         for(String k:imageColumns())if(!b.get(k).isEmpty()&&!a.get(k).equals(b.get(k))){for(String slot:imageColumns())if(a.get(slot).isEmpty()){a.put(slot,b.get(k));break;}}

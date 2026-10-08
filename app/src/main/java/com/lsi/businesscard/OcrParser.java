@@ -25,25 +25,20 @@ public final class OcrParser {
     public static Map<String,String> parse(String raw) {
         LinkedHashMap<String,String> out = new LinkedHashMap<>();
         List<String> lines = cleanLines(raw);
-        String joined = String.join("\n", lines);
+        StringBuilder joinedBuilder=new StringBuilder();for(String line:lines){if(joinedBuilder.length()>0)joinedBuilder.append("\n");joinedBuilder.append(line);}String joined=joinedBuilder.toString();
 
         List<String> emails = matches(EMAIL, joined);
         for (int i=0;i<Math.min(3,emails.size());i++) out.put("email"+(i+1), emails.get(i));
-        List<String> urls = matches(URL, joined);
+        List<String> urls = matches(URL, EMAIL.matcher(joined).replaceAll(""));
         if (!urls.isEmpty()) out.put("website", urls.get(0));
 
-        List<String> phones = new ArrayList<>();
-        Matcher pm = PHONE.matcher(joined);
-        while(pm.find()) {
-            String p = normalizePhone(pm.group());
-            if (digits(p).length() >= 9 && !phones.contains(p)) phones.add(p);
-        }
-        int mi=1,pi=1;
-        for(String p:phones) {
-            String d=digits(p);
-            boolean mobile=d.startsWith("010") || d.startsWith("011") || d.startsWith("016") || d.startsWith("017") || d.startsWith("018") || d.startsWith("019") || d.startsWith("8210");
-            if(mobile && mi<=3) out.put("mobile"+(mi++),p); else if(!mobile && pi<=3) out.put("phone"+(pi++),p);
-        }
+        Set<String> seenPhones=new LinkedHashSet<>();int mi=1,pi=1,fi=1;
+        for(String line:lines){Matcher pm=PHONE.matcher(line);while(pm.find()){
+            String p=normalizePhone(pm.group()),d=digits(p);if(d.length()<9||!seenPhones.add(d))continue;
+            boolean mobile=d.startsWith("010")||d.startsWith("011")||d.startsWith("016")||d.startsWith("017")||d.startsWith("018")||d.startsWith("019")||d.startsWith("8210");
+            boolean fax=line.toLowerCase(Locale.ROOT).contains("fax")||line.contains("팩스");
+            if(fax&&fi<=3)out.put("fax"+(fi++),p);else if(mobile&&mi<=3)out.put("mobile"+(mi++),p);else if(!mobile&&pi<=3)out.put("phone"+(pi++),p);
+        }}
 
         String title="", department="", company="", address="", name="";
         for(String line:lines) {
@@ -53,16 +48,8 @@ public final class OcrParser {
             if (company.isEmpty() && containsAny(low,COMPANY_WORDS) && !looksContact(line)) company=line;
             if (address.isEmpty() && looksAddress(line)) address=line;
         }
-        for(String line:lines) {
-            if(KOREAN_NAME.matcher(line.replace(" ","")).matches() && !containsAny(line,TITLE_WORDS) && !containsAny(line,DEPT_WORDS)) { name=line.replace(" ",""); break; }
-        }
-        if(name.isEmpty()) {
-            for(String line:lines) {
-                String[] parts=line.split("\\s+");
-                for(String part:parts) if(KOREAN_NAME.matcher(part).matches() && !containsAny(part,TITLE_WORDS)) { name=part; break; }
-                if(!name.isEmpty()) break;
-            }
-        }
+        int bestNameScore=-1;
+        for(String line:lines){if(looksContact(line)||looksAddress(line)||line.equals(company)||containsAny(line,COMPANY_WORDS))continue;String compact=line.replace(" ","");for(String part:line.split("\\s+")){String candidate=KOREAN_NAME.matcher(compact).matches()?compact:part;if(!KOREAN_NAME.matcher(candidate).matches()||containsAny(candidate,TITLE_WORDS)||containsAny(candidate,DEPT_WORDS))continue;int score=candidate.length()==3?10:0;if("김이박최정강조윤장임한오서신권황안송전홍유고문양손배백허남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용".indexOf(candidate.charAt(0))>=0)score+=4;if(containsAny(line,TITLE_WORDS))score+=3;if(score>bestNameScore){name=candidate;bestNameScore=score;}}}
         if(company.isEmpty()) {
             for(String line:lines) {
                 if(line.equals(name) || looksContact(line) || line.length()<2 || line.length()>40 || containsAny(line,TITLE_WORDS)) continue;
