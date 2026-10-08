@@ -9,11 +9,14 @@ import java.util.zip.*;
 
 public final class BackupManager {
     public static File createBackup(Context ctx, DbHelper db) throws Exception {
-        File out = new File(ctx.getCacheDir(), "BusinessCard_LSI_backup.zip"); if (out.exists()) out.delete();
+        return createBackup(ctx,db.all());
+    }
+    public static File createBackup(Context ctx,List<Contact> contacts)throws Exception{
+        File out=ExportShare.newFile(ctx,"명함관리_LSI_백업_"+contacts.size()+"명",".zip");
         ZipOutputStream zout = new ZipOutputStream(new BufferedOutputStream(new FileOutputStream(out)));
         try {
             JSONArray arr = new JSONArray(); Map<String,String> imageEntries=new HashMap<>();
-            for (Contact c : db.all()) {
+            for (Contact c : contacts) {
                 JSONObject o = new JSONObject(); o.put("favorite", c.favorite);
                 for (String col : DbHelper.TEXT_COLUMNS) {
                     String v = c.get(col);
