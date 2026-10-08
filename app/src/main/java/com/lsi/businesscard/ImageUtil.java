@@ -3,6 +3,8 @@ package com.lsi.businesscard;
 import android.content.Context;
 import android.graphics.Bitmap;
 import android.graphics.BitmapFactory;
+import android.graphics.Matrix;
+import android.media.ExifInterface;
 import android.net.Uri;
 import android.util.LruCache;
 import java.io.*;
@@ -15,9 +17,12 @@ public final class ImageUtil {
         String key=path+"@"+maxPx;Bitmap b=CACHE.get(key);if(b!=null&&!b.isRecycled())return b;
         BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;BitmapFactory.decodeFile(path,o);if(o.outWidth<=0||o.outHeight<=0)return null;
         int s=1;while(o.outWidth/s>maxPx*2||o.outHeight/s>maxPx*2)s*=2;o.inJustDecodeBounds=false;o.inSampleSize=Math.max(1,s);o.inPreferredConfig=Bitmap.Config.RGB_565;
-        b=BitmapFactory.decodeFile(path,o);if(b!=null)CACHE.put(key,b);return b;
+        b=BitmapFactory.decodeFile(path,o);b=applyOrientation(path,b);if(b!=null)CACHE.put(key,b);return b;
     }
 
+    public static Bitmap oriented(String path,int maxPx){return thumbnail(path,maxPx);}
+    private static Bitmap applyOrientation(String path,Bitmap b){if(b==null)return null;try{int o=new ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION,1);Matrix m=new Matrix();switch(o){case 2:m.setScale(-1,1);break;case 3:m.setRotate(180);break;case 4:m.setScale(1,-1);break;case 5:m.setRotate(90);m.postScale(-1,1);break;case 6:m.setRotate(90);break;case 7:m.setRotate(-90);m.postScale(-1,1);break;case 8:m.setRotate(-90);break;default:return b;}return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);}catch(Exception ignored){return b;}}
+    public static String saveBitmap(Context ctx,Bitmap b,String prefix)throws Exception{File f=newCardFile(ctx,prefix,".jpg");try(OutputStream out=new FileOutputStream(f)){if(!b.compress(Bitmap.CompressFormat.JPEG,94,out))throw new IOException("사진 저장 실패");}return f.getAbsolutePath();}
     public static String copyUriToCards(Context ctx,Uri uri,String prefix)throws Exception{
         String ext=extensionFromType(ctx.getContentResolver().getType(uri));File dst=newCardFile(ctx,prefix,ext);InputStream in=ctx.getContentResolver().openInputStream(uri);if(in==null)throw new Exception("사진을 열 수 없습니다.");copy(in,new FileOutputStream(dst));return dst.getAbsolutePath();
     }

@@ -1,4 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
+    <queries><intent><action android:name="android.media.action.IMAGE_CAPTURE" /></intent></queries>
     <uses-feature android:name="android.hardware.camera" android:required="false" />
 
     <application
@@ -14,6 +15,7 @@
             android:exported="false"
             android:grantUriPermissions="true" />
 
+        <activity android:name=".PhotoEditActivity" android:exported="false" />
         <activity android:name=".EditActivity" android:exported="false" />
         <activity android:name=".DetailActivity" android:exported="false" />
         <activity android:name=".MainActivity" android:exported="true">

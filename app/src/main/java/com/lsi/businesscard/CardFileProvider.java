@@ -43,7 +43,7 @@ public class CardFileProvider extends ContentProvider {
     }
 
     @Override public boolean onCreate() { return true; }
-    @Override public String getType(Uri uri) { return "image/jpeg"; }
+    @Override public String getType(Uri uri) { return uri!=null&&uri.getLastPathSegment()!=null&&uri.getLastPathSegment().endsWith(".vcf")?"text/vcard":"image/jpeg"; }
 
     @Override public ParcelFileDescriptor openFile(Uri uri, String mode) throws FileNotFoundException {
         File f = resolve(uri);

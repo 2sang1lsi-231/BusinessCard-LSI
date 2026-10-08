@@ -59,14 +59,15 @@ public final class Ui {
             safe.requestApplyInsets();
         }
     }
+    private static float textScale(Context c){int size=c.getSharedPreferences("display",Context.MODE_PRIVATE).getInt("size",0);return size==1?1.15f:size==2?1.3f:1f;}
     public static int dp(Context c, int v) { return Math.round(v * c.getResources().getDisplayMetrics().density); }
     public static TextView text(Context c, String s, float sp, boolean bold) {
-        TextView v = new TextView(c); v.setText(s); v.setTextSize(sp); v.setTextColor(Color.rgb(32,33,36));
+        TextView v = new TextView(c); v.setText(s); v.setTextSize(sp*textScale(c)); v.setTextColor(Color.rgb(32,33,36));
         if (bold) v.setTypeface(gothic(c), Typeface.BOLD); v.setPadding(0, dp(c,4), 0, dp(c,4)); return v;
     }
     public static TextView label(Context c,String s){TextView v=text(c,s,13,true);v.setTextColor(Color.rgb(85,92,101));v.setPadding(0,dp(c,10),0,0);return v;}
-    public static Button button(Context c, String s) { Button b = new Button(c); b.setText(s); b.setAllCaps(false); b.setTypeface(gothic(c), Typeface.NORMAL); b.setMinHeight(dp(c,48)); return b; }
-    public static EditText edit(Context c, String hint) { EditText e = new EditText(c); e.setHint(hint); e.setTypeface(gothic(c), Typeface.NORMAL); e.setTextSize(16); e.setSingleLine(true); e.setPadding(dp(c,4),dp(c,7),dp(c,4),dp(c,7)); return e; }
+    public static Button button(Context c, String s) { Button b = new Button(c); b.setText(s); b.setAllCaps(false); b.setTypeface(gothic(c), Typeface.NORMAL); b.setTextSize(14*textScale(c));b.setMinHeight(dp(c,48)); return b; }
+    public static EditText edit(Context c, String hint) { EditText e = new EditText(c); e.setHint(hint); e.setTypeface(gothic(c), Typeface.NORMAL); e.setTextSize(16*textScale(c)); e.setSingleLine(true); e.setPadding(dp(c,4),dp(c,7),dp(c,4),dp(c,7)); return e; }
     public static TextView section(Context c,String s){TextView t=text(c,s,18,true);t.setTextColor(Color.rgb(25,118,210));t.setPadding(0,dp(c,16),0,dp(c,4));return t;}
     public static LinearLayout.LayoutParams mp(Context c) { return new LinearLayout.LayoutParams(-1,-2); }
     public static LinearLayout.LayoutParams weight(int w) { return new LinearLayout.LayoutParams(0,-2,w); }

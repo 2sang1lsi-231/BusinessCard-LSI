@@ -2,11 +2,61 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ build/v1.5-input-order ]
+    branches: [ build/v2.0-complete ]
 permissions:
   contents: read
 jobs:
+  checks:
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        api: [26, 35]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.9'
+      - name: Bundle Korean Gothic font
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf' -o app/src/main/assets/NotoSansKR-variable.ttf
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/OFL.txt' -o app/src/main/assets/NotoSansKR-OFL.txt
+          python -m pip install fonttools==4.55.3
+          fonttools varLib.instancer app/src/main/assets/NotoSansKR-variable.ttf wght=400 --output app/src/main/assets/NotoSansKR.ttf
+          rm app/src/main/assets/NotoSansKR-variable.ttf
+      - name: Build device checks
+        run: gradle :app:assembleDebug :app:assembleAndroidTest --no-daemon --stacktrace
+      - name: Enable emulator acceleration
+        run: sudo chmod 666 /dev/kvm
+      - name: Android device integration checks
+        uses: reactivecircus/android-emulator-runner@v2
+        with:
+          api-level: ${{ matrix.api }}
+          target: google_apis
+          arch: x86_64
+          disable-animations: true
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          script: |
+            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
+            adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt
+            adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots
+            cat device-checks.txt
+            rg -q ALL_CHECKS_PASSED device-checks.txt
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: Android-${{ matrix.api }}-checks
+          path: |
+            device-checks.txt
+            screenshots/
   build:
+    needs: checks
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -30,10 +80,10 @@ jobs:
       - name: Align APK and collect verification tools
         run: |
           mkdir package
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.5-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v2.0-unsigned.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.5-unsigned.apk > package/apk-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v2.0-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v1.5_BUILD
+          name: BusinessCard_LSI_v2.0_BUILD
           path: package/

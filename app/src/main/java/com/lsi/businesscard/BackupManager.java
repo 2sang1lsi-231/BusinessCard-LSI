@@ -28,7 +28,7 @@ public final class BackupManager {
                 }
                 arr.put(o);
             }
-            JSONObject root = new JSONObject(); root.put("format", "BusinessCardLSI"); root.put("version", 2); root.put("created_at", now()); root.put("contacts", arr);
+            JSONObject root = new JSONObject(); root.put("format", "BusinessCardLSI"); root.put("version", 3); root.put("created_at", now()); root.put("contacts", arr);
             zout.putNextEntry(new ZipEntry("contacts.json")); byte[] json = root.toString(2).getBytes("UTF-8"); zout.write(json); zout.closeEntry();
         } finally { zout.close(); }
         return out;
@@ -36,18 +36,18 @@ public final class BackupManager {
 
     public static RestoreResult restoreBackup(Context ctx, File zip, DbHelper db) throws Exception {
         File temp = new File(ctx.getCacheDir(), "lsi_restore_" + System.currentTimeMillis()); if(!temp.mkdirs())throw new Exception("복원 임시 폴더를 만들 수 없습니다.");
-        RestoreResult rr=new RestoreResult();
+        RestoreResult rr=new RestoreResult();java.util.List<String> copied=new java.util.ArrayList<>();boolean committed=false;android.database.sqlite.SQLiteDatabase sql=db.getWritableDatabase();
         try{
             unzipSafe(zip, temp); File jf = new File(temp, "contacts.json"); if (!jf.isFile()) throw new Exception("LSI 백업 파일이 아닙니다.");
             JSONObject root = new JSONObject(readText(jf)); if (!"BusinessCardLSI".equals(root.optString("format"))) throw new Exception("LSI 백업 형식이 아닙니다.");
             JSONArray arr = root.getJSONArray("contacts"); File imgDir = new File(ctx.getFilesDir(), "cards"); if (!imgDir.exists()&&!imgDir.mkdirs())throw new Exception("사진 폴더를 만들 수 없습니다.");
-            for (int i=0;i<arr.length();i++) {
+            sql.beginTransaction();try{for (int i=0;i<arr.length();i++) {
                 JSONObject o=arr.getJSONObject(i); Contact c=new Contact(); c.favorite=o.optInt("favorite",0);
-                for(String col:DbHelper.TEXT_COLUMNS){String v=o.optString(col,"");if(col.startsWith("image_")&&v.startsWith("images/")){File src=new File(temp,v);if(src.isFile()){File dst=uniqueFile(imgDir,safe(src.getName()));copy(new FileInputStream(src),new FileOutputStream(dst),true);v=dst.getAbsolutePath();}else v="";}c.put(col,v);}
+                for(String col:DbHelper.TEXT_COLUMNS){String v=o.optString(col,"");if(col.startsWith("image_")&&v.startsWith("images/")){File src=new File(temp,v);if(!src.getCanonicalPath().startsWith(new File(temp,"images").getCanonicalPath()+File.separator))throw new Exception("잘못된 백업 사진 경로");if(src.isFile()){File dst=uniqueFile(imgDir,safe(src.getName()));copy(new FileInputStream(src),new FileOutputStream(dst),true);v=dst.getAbsolutePath();copied.add(v);}else v="";}else if(col.startsWith("image_"))v="";c.put(col,v);}
                 long dup=db.findDuplicateId(c);if(dup>0){db.mergeInto(dup,c);rr.merged++;}else{db.insert(c);rr.added++;}
-            }
-            return rr;
-        } finally { deleteRec(temp); }
+            }sql.setTransactionSuccessful();committed=true;}finally{sql.endTransaction();}
+            for(String path:copied)db.cleanupImageIfUnused(path);return rr;
+        } finally {if(!committed)for(String path:copied)db.cleanupImageIfUnused(path);deleteRec(temp); }
     }
     public static final class RestoreResult{public int added,merged;public String message(){return "신규 "+added+"명 / 기존 명함 병합 "+merged+"명 복원 완료";}}
 

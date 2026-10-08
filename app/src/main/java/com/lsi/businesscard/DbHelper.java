@@ -15,14 +15,14 @@ import java.util.Set;
 
 public class DbHelper extends SQLiteOpenHelper {
     public static final String DB_NAME = "business_cards.db";
-    public static final int DB_VERSION = 2;
+    public static final int DB_VERSION = 3;
     public static final String[] TEXT_COLUMNS = {
             "created_at","updated_at","name","industry","location_text",
             "company1","department1","title1","company2","department2","title2","company3","department3","title3",
             "mobile1","mobile2","mobile3","phone1","phone2","phone3","fax1","fax2","fax3",
             "email1","email2","email3","address1","address2","address3","website","instant_message","sns_account",
             "nickname","birthday","anniversary","note1","note2","note3",
-            "image_front","image_back","image_front2","image_back2","group_name","source"
+            "image_front","image_back","image_front2","image_back2","group_name","source","met_at","met_place","meeting_notes"
     };
 
     public DbHelper(Context context) { super(context, DB_NAME, null, DB_VERSION); }
@@ -45,9 +45,10 @@ public class DbHelper extends SQLiteOpenHelper {
             try { db.execSQL("CREATE INDEX idx_contacts_group ON contacts(group_name)"); }
             catch (Exception ignored) { }
         }
+        if (oldVersion < 3) for (String col : new String[]{"met_at","met_place","meeting_notes"}) db.execSQL("ALTER TABLE contacts ADD COLUMN " + col + " TEXT NOT NULL DEFAULT ''");
     }
 
-    public long insert(Contact x) { return getWritableDatabase().insert("contacts", null, x.toContentValues()); }
+    public long insert(Contact x) { return getWritableDatabase().insertOrThrow("contacts", null, x.toContentValues()); }
 
     public int update(Contact x) {
         return getWritableDatabase().update("contacts", x.toContentValues(), "_id=?", new String[]{String.valueOf(x.id)});
@@ -88,24 +89,16 @@ public class DbHelper extends SQLiteOpenHelper {
         List<Contact> out = new ArrayList<>();
         ArrayList<String> parts = new ArrayList<>();
         ArrayList<String> args = new ArrayList<>();
-        if (q != null && !q.trim().isEmpty()) {
-            String like = "%" + q.trim() + "%";
-            String[] cols = {"name","company1","company2","company3","department1","department2","department3","title1","title2","title3",
-                    "mobile1","mobile2","mobile3","phone1","phone2","phone3","email1","email2","email3","address1","address2","address3","website","group_name","note1","note2","note3"};
-            StringBuilder b = new StringBuilder("(");
-            for (int i=0;i<cols.length;i++) { if (i>0) b.append(" OR "); b.append(cols[i]).append(" LIKE ?"); args.add(like); }
-            b.append(")"); parts.add(b.toString());
-        }
         if (favoritesOnly) parts.add("favorite=1");
         if (group != null && !group.isEmpty()) { parts.add("group_name=?"); args.add(group); }
         String where = parts.isEmpty() ? null : join(" AND ", parts);
         Cursor c = getReadableDatabase().query("contacts", null, where, args.isEmpty()?null:args.toArray(new String[0]), null, null,
                 orderFor(sort));
-        try { while (c.moveToNext()) out.add(Contact.fromCursor(c)); } finally { c.close(); }
+        try { while (c.moveToNext()) { Contact x=Contact.fromCursor(c);if(SearchMatcher.matches(x,q))out.add(x); } } finally { c.close(); }
         return out;
     }
 
-    public static final String[] SORT_LABELS = {"입력순 · 먼저 입력한 순서", "입력순 · 최근 입력한 순서", "이름 · 가나다순", "이름 · 역순", "회사 · 가나다순", "회사 · 역순", "최근 수정한 순서"};
+    public static final String[] SORT_LABELS = {"입력순 · 먼저 입력한 순서", "입력순 · 최근 입력한 순서", "이름 · 가나다순", "이름 · 역순", "회사 · 가나다순", "회사 · 역순", "최근 수정한 순서", "만난 날짜 · 최근순", "만난 날짜 · 오래된 순"};
     public static String orderFor(int sort) {
         switch(sort) {
             case 1: return "_id DESC";
@@ -114,6 +107,8 @@ public class DbHelper extends SQLiteOpenHelper {
             case 4: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED ASC, _id ASC";
             case 5: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED DESC, _id ASC";
             case 6: return "CASE WHEN updated_at='' THEN 1 ELSE 0 END, updated_at DESC, _id DESC";
+            case 7: return "CASE WHEN met_at='' THEN 1 ELSE 0 END, met_at DESC, _id DESC";
+            case 8: return "CASE WHEN met_at='' THEN 1 ELSE 0 END, met_at ASC, _id DESC";
             default: return "_id ASC";
         }
     }
@@ -146,7 +141,7 @@ public class DbHelper extends SQLiteOpenHelper {
         update(base); return base;
     }
 
-    private static boolean samePerson(Contact a, Contact b) {
+    public static boolean samePerson(Contact a, Contact b) {
         String an=normText(a.get("name")), bn=normText(b.get("name"));
         String ac=firstCompany(a), bc=firstCompany(b);
         Set<String> ap=phones(a), bp=phones(b);
@@ -189,6 +184,17 @@ public class DbHelper extends SQLiteOpenHelper {
         return out;
     }
 
+    public void setGroup(long id,String group){ContentValues v=new ContentValues();v.put("group_name",group);v.put("updated_at",now());getWritableDatabase().update("contacts",v,"_id=?",new String[]{String.valueOf(id)});}
+    public void renameGroup(String old,String replacement){ContentValues v=new ContentValues();v.put("group_name",replacement);getWritableDatabase().update("contacts",v,"group_name=?",new String[]{old});}
+    public void mergeAndDelete(long keep,long remove){
+        Contact a=get(keep),b=get(remove);if(a==null||b==null||keep==remove)return;
+        // Keep differing contact details in a note rather than silently losing them.
+        StringBuilder conflicts=new StringBuilder();for(String k:TEXT_COLUMNS)if(!k.startsWith("image_")&&!k.equals("updated_at")&&!k.equals("created_at")&&!a.get(k).isEmpty()&&!b.get(k).isEmpty()&&!a.get(k).equals(b.get(k)))conflicts.append(k).append(": ").append(b.get(k)).append("\n");
+        for(String k:imageColumns())if(!b.get(k).isEmpty()&&!a.get(k).equals(b.get(k))){for(String slot:imageColumns())if(a.get(slot).isEmpty()){a.put(slot,b.get(k));break;}}
+        if(conflicts.length()>0)a.put("note3",a.get("note3")+"\n[병합한 명함의 추가 정보]\n"+conflicts);
+        android.database.sqlite.SQLiteDatabase sql=getWritableDatabase();sql.beginTransaction();try{update(a);mergeInto(keep,b);delete(remove);sql.setTransactionSuccessful();}finally{sql.endTransaction();}
+        for(String k:imageColumns())cleanupImageIfUnused(b.get(k));
+    }
     public int count() {
         Cursor c = getReadableDatabase().rawQuery("SELECT COUNT(*) FROM contacts", null);
         try { return c.moveToFirst() ? c.getInt(0) : 0; } finally { c.close(); }
