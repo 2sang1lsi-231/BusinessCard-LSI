@@ -29,6 +29,7 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.exifinterface:exifinterface:1.4.2'
     // Bundled on-device Korean text recognizer: business-card OCR works without uploading card images to a server.
     implementation 'com.google.mlkit:text-recognition-korean:16.0.1'
 }
