@@ -45,7 +45,7 @@ public class EditActivity extends Activity {
         root.addView(Ui.section(this,"명함 사진"));frontStatus=photoRow(root,"앞면",REQ_FRONT_CAMERA,REQ_FRONT_PICK,"image_front",true);backStatus=photoRow(root,"뒷면",REQ_BACK_CAMERA,REQ_BACK_PICK,"image_back",false);
 
         LinearLayout bottom=new LinearLayout(this);Button cancel=Ui.button(this,"취소");Button save=Ui.button(this,"저장");bottom.addView(cancel,Ui.weight(1));bottom.addView(save,Ui.weight(1));root.addView(Ui.gap(this,12));root.addView(bottom);
-        cancel.setOnClickListener(v->{cleanupUnsavedImages();finish();});save.setOnClickListener(v->{scanNext=false;save(false);});if(isNew){Button next=Ui.button(this,"저장 후 다음 명함 촬영");root.addView(next);next.setOnClickListener(v->{scanNext=true;save(false);});}Ui.setContentView(this,sv);
+        cancel.setOnClickListener(v->{cleanupUnsavedImages();finish();});save.setOnClickListener(v->{scanNext=false;save(false);});if(isNew){Button next=Ui.button(this,"저장 후 다음 명함 촬영");root.addView(next);next.setOnClickListener(v->{scanNext=true;save(false);});}Ui.setContentView(this,sv);if(getIntent().getBooleanExtra("focus_meeting",false)){sv.post(()->sv.smoothScrollTo(0,Math.max(0,fields.get("met_at").getTop()-Ui.dp(this,48))));}
     }
 
     private void add(LinearLayout root,String key,String label,int type,boolean multi){root.addView(Ui.label(this,label));EditText e=Ui.edit(this,label);e.setInputType(type);e.setText(c.get(key));if(multi){e.setSingleLine(false);e.setMinLines(2);e.setGravity(Gravity.TOP|Gravity.LEFT);}fields.put(key,e);root.addView(e,Ui.mp(this));}
