@@ -1,0 +1,42 @@
+package com.lsi.businesscard;
+
+import android.app.*;
+import android.content.*;
+import android.graphics.Bitmap;
+import android.graphics.Color;
+import android.net.Uri;
+import android.os.Bundle;
+import android.provider.ContactsContract;
+import android.view.*;
+import android.widget.*;
+import java.io.File;
+
+public class DetailActivity extends Activity {
+    private DbHelper db;private long id;private Contact c;private LinearLayout root;
+    @Override public void onCreate(Bundle b){super.onCreate(b);db=new DbHelper(this);id=getIntent().getLongExtra("id",-1);show();}
+    @Override protected void onResume(){super.onResume();if(db!=null)show();}
+    private void show(){c=db.get(id);if(c==null){finish();return;}ScrollView sv=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(Ui.dp(this,18),Ui.dp(this,12),Ui.dp(this,18),Ui.dp(this,24));root.setBackgroundColor(Color.WHITE);sv.addView(root);
+        LinearLayout bar=new LinearLayout(this);Button back=Ui.button(this,"‹ 목록");Button edit=Ui.button(this,"수정");Button fav=Ui.button(this,c.favorite==1?"★":"☆");bar.addView(back);bar.addView(new Space(this),Ui.weight(1));bar.addView(fav);bar.addView(edit);root.addView(bar);back.setOnClickListener(v->finish());edit.setOnClickListener(v->startActivity(new Intent(this,EditActivity.class).putExtra("id",id)));fav.setOnClickListener(v->{db.setFavorite(id,c.favorite!=1);show();});
+        root.addView(Ui.text(this,nz(c.get("name"),"(이름 없음)"),28,true));addLine(join(" · ",c.get("company1"),c.get("department1"),c.get("title1")),16);if(!c.get("group_name").isEmpty())root.addView(Ui.badge(this,c.get("group_name")));
+        addImage(c.get("image_front"),"명함 앞면");addImage(c.get("image_back"),"명함 뒷면");addImage(c.get("image_front2"),"명함 앞면 2");addImage(c.get("image_back2"),"명함 뒷면 2");
+        section("연락처");for(String k:new String[]{"mobile1","mobile2","mobile3"})action("휴대폰",c.get(k),v->dial(((Button)v).getTag().toString()));for(String k:new String[]{"phone1","phone2","phone3"})action("전화",c.get(k),v->dial(((Button)v).getTag().toString()));for(String k:new String[]{"fax1","fax2","fax3"})field("팩스",c.get(k));for(String k:new String[]{"email1","email2","email3"})action("이메일",c.get(k),v->email(((Button)v).getTag().toString()));for(String k:new String[]{"address1","address2","address3"})action("주소",c.get(k),v->map(((Button)v).getTag().toString()));action("웹사이트",c.get("website"),v->web(((Button)v).getTag().toString()));
+        section("회사 / 기타 정보");field("회사 2",join(" / ",c.get("company2"),c.get("department2"),c.get("title2")));field("회사 3",join(" / ",c.get("company3"),c.get("department3"),c.get("title3")));field("업종",c.get("industry"));field("위치",c.get("location_text"));field("메신저",c.get("instant_message"));field("SNS",c.get("sns_account"));field("별명",c.get("nickname"));field("생일",c.get("birthday"));field("기념일",c.get("anniversary"));field("메모",join("\n",c.get("note1"),c.get("note2"),c.get("note3")));field("가져온 곳",c.get("source"));field("생성일",c.get("created_at"));
+        LinearLayout share=new LinearLayout(this);Button contacts=Ui.button(this,"연락처에 저장");Button send=Ui.button(this,"정보 공유");share.addView(contacts,Ui.weight(1));share.addView(send,Ui.weight(1));root.addView(share);contacts.setOnClickListener(v->saveToContacts());send.setOnClickListener(v->shareText());
+        Button del=Ui.button(this,"명함 삭제");root.addView(del);del.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("명함 삭제").setMessage("이 명함과 사용하지 않는 해당 사진을 삭제할까요?").setNegativeButton("취소",null).setPositiveButton("삭제",(d,w)->{db.deleteWithUnusedImages(id);finish();}).show());setContentView(sv);}
+    private void section(String s){root.addView(Ui.section(this,s));}
+    private void field(String label,String val){if(val==null||val.trim().isEmpty())return;TextView t=Ui.text(this,label+"\n"+val.trim(),15,false);t.setTextIsSelectable(true);root.addView(t);}
+    private void action(String label,String val,View.OnClickListener l){if(val==null||val.trim().isEmpty())return;Button b=Ui.button(this,label+"  "+val.trim());b.setGravity(Gravity.LEFT|Gravity.CENTER_VERTICAL);b.setTag(val.trim());if(l!=null)b.setOnClickListener(l);b.setOnLongClickListener(v->{copy(((Button)v).getTag().toString());return true;});root.addView(b);}
+    private void addLine(String s,int sp){if(s!=null&&!s.isEmpty())root.addView(Ui.text(this,s,sp,false));}
+    private void addImage(String path,String label){if(path==null||path.isEmpty()||!new File(path).isFile())return;root.addView(Ui.label(this,label));ImageView im=new ImageView(this);im.setAdjustViewBounds(true);im.setScaleType(ImageView.ScaleType.FIT_CENTER);Bitmap b=ImageUtil.thumbnail(path,1600);if(b!=null)im.setImageBitmap(b);im.setOnClickListener(v->showImage(path,label));root.addView(im,new LinearLayout.LayoutParams(-1,-2));}
+    private void showImage(String path,String title){Bitmap b=ImageUtil.thumbnail(path,2600);if(b==null)return;ImageView im=new ImageView(this);im.setAdjustViewBounds(true);im.setScaleType(ImageView.ScaleType.FIT_CENTER);im.setImageBitmap(b);ScrollView sv=new ScrollView(this);sv.addView(im);new AlertDialog.Builder(this).setTitle(title).setView(sv).setPositiveButton("닫기",null).show();}
+    private void dial(String s){safeStart(new Intent(Intent.ACTION_DIAL,Uri.parse("tel:"+Uri.encode(s))),"전화 앱을 열 수 없습니다.");}
+    private void email(String s){safeStart(new Intent(Intent.ACTION_SENDTO,Uri.parse("mailto:"+Uri.encode(s))),"메일 앱을 열 수 없습니다.");}
+    private void map(String s){safeStart(new Intent(Intent.ACTION_VIEW,Uri.parse("geo:0,0?q="+Uri.encode(s))),"지도 앱을 열 수 없습니다.");}
+    private void web(String s){String u=s.startsWith("http://")||s.startsWith("https://")?s:"https://"+s;safeStart(new Intent(Intent.ACTION_VIEW,Uri.parse(u)),"웹 주소를 열 수 없습니다.");}
+    private void safeStart(Intent i,String msg){try{startActivity(i);}catch(Exception e){Toast.makeText(this,msg,Toast.LENGTH_SHORT).show();}}
+    private void copy(String s){android.content.ClipboardManager m=(android.content.ClipboardManager)getSystemService(CLIPBOARD_SERVICE);m.setPrimaryClip(ClipData.newPlainText("명함 정보",s));Toast.makeText(this,"클립보드에 복사했습니다.",Toast.LENGTH_SHORT).show();}
+    private void saveToContacts(){Intent i=new Intent(Intent.ACTION_INSERT,ContactsContract.Contacts.CONTENT_URI);i.putExtra(ContactsContract.Intents.Insert.NAME,c.get("name"));i.putExtra(ContactsContract.Intents.Insert.COMPANY,c.get("company1"));i.putExtra(ContactsContract.Intents.Insert.JOB_TITLE,c.get("title1"));i.putExtra(ContactsContract.Intents.Insert.PHONE,nz(c.get("mobile1"),c.get("phone1")));i.putExtra(ContactsContract.Intents.Insert.EMAIL,c.get("email1"));safeStart(i,"연락처 앱을 열 수 없습니다.");}
+    private void shareText(){StringBuilder b=new StringBuilder();append(b,c.get("name"));append(b,join(" / ",c.get("company1"),c.get("department1"),c.get("title1")));for(String k:new String[]{"mobile1","mobile2","mobile3","phone1","phone2","phone3","email1","email2","email3","address1","website"})append(b,c.get(k));Intent i=new Intent(Intent.ACTION_SEND);i.setType("text/plain");i.putExtra(Intent.EXTRA_TEXT,b.toString());safeStart(Intent.createChooser(i,"명함 정보 공유"),"공유할 앱을 열 수 없습니다.");}
+    private static void append(StringBuilder b,String s){if(s!=null&&!s.trim().isEmpty()){if(b.length()>0)b.append('\n');b.append(s.trim());}}
+    private static String nz(String a,String b){return a==null||a.isEmpty()?b:a;}private static String join(String sep,String...s){StringBuilder b=new StringBuilder();for(String x:s)if(x!=null&&!x.trim().isEmpty()){if(b.length()>0)b.append(sep);b.append(x.trim());}return b.toString();}
+}
