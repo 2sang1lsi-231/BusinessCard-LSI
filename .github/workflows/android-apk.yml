@@ -20,8 +20,11 @@ jobs:
       - name: Bundle Korean Gothic font
         run: |
           mkdir -p app/src/main/assets
-          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf' -o app/src/main/assets/NotoSansKR.ttf
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf' -o app/src/main/assets/NotoSansKR-variable.ttf
           curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/OFL.txt' -o app/src/main/assets/NotoSansKR-OFL.txt
+          python -m pip install fonttools==4.55.3
+          fonttools varLib.instancer app/src/main/assets/NotoSansKR-variable.ttf wght=400 --output app/src/main/assets/NotoSansKR.ttf
+          rm app/src/main/assets/NotoSansKR-variable.ttf
       - name: Build APK for private signing
         run: gradle :app:assembleRelease --no-daemon --stacktrace
       - name: Align APK and collect verification tools
