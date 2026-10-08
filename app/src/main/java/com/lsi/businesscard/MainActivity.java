@@ -37,7 +37,7 @@ public class MainActivity extends Activity {
         list.setOnItemClickListener((p,v,pos,id)->{Contact c=(Contact)p.getItemAtPosition(pos);startActivity(new Intent(this,DetailActivity.class).putExtra("id",c.id));});
 
         LinearLayout bottom=new LinearLayout(this);bottom.setGravity(Gravity.CENTER);Button imp=Ui.button(this,"가져오기");Button add=Ui.button(this,"＋ 새 명함");Button bak=Ui.button(this,"백업/복원");bottom.addView(imp,Ui.weight(1));bottom.addView(add,Ui.weight(1));bottom.addView(bak,Ui.weight(1));root.addView(bottom,Ui.mp(this));
-        imp.setOnClickListener(v->showImportMenu());add.setOnClickListener(v->startActivity(new Intent(this,EditActivity.class)));bak.setOnClickListener(v->showBackupMenu());setContentView(root);
+        imp.setOnClickListener(v->showImportMenu());add.setOnClickListener(v->startActivity(new Intent(this,EditActivity.class)));bak.setOnClickListener(v->showBackupMenu());Ui.setContentView(this,root);
     }
 
     private void refresh(){if(db==null||list==null)return;List<Contact> items=db.search(search==null?"":search.getText().toString(),favoritesOnly,groupFilter);list.setAdapter(new ContactAdapter(this,items));count.setText(items.size()+"명");}

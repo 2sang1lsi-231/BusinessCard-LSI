@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ main, build/v1.3-icon-a ]
+    branches: [ build/v1.4-safe-area ]
 permissions:
   contents: read
 jobs:
@@ -17,15 +17,20 @@ jobs:
       - uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.9'
+      - name: Bundle Korean Gothic font
+        run: |
+          mkdir -p app/src/main/assets
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/NotoSansKR%5Bwght%5D.ttf' -o app/src/main/assets/NotoSansKR.ttf
+          curl --fail --location --retry 3 'https://raw.githubusercontent.com/google/fonts/4efc2774c63917927efe769ca845def6bd6debae/ofl/notosanskr/OFL.txt' -o app/src/main/assets/NotoSansKR-OFL.txt
       - name: Build APK for private signing
         run: gradle :app:assembleRelease --no-daemon --stacktrace
       - name: Align APK and collect verification tools
         run: |
           mkdir package
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.3-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v1.4-unsigned.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.3-unsigned.apk > package/apk-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v1.4-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v1.3_BUILD
+          name: BusinessCard_LSI_v1.4_BUILD
           path: package/
