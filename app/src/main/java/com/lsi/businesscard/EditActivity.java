@@ -31,9 +31,9 @@ public class EditActivity extends Activity {
         ScrollView sv=new ScrollView(this);LinearLayout root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(Ui.dp(this,18),Ui.dp(this,10),Ui.dp(this,18),Ui.dp(this,28));sv.addView(root);
         root.addView(Ui.text(this,isNew?"새 명함":"명함 수정",26,true));
 
-        root.addView(Ui.section(this,"명함 자동 인식"));
-        TextView help=Ui.text(this,"명함 외곽선 자동 인식·기울기 보정 후 한국어와 한자를 인식합니다. 한자는 한글 독음으로 입력하고 원문을 보관합니다.",14,false);root.addView(help);
-        LinearLayout scanRow=new LinearLayout(this);Button scanCamera=Ui.button(this,"외곽선 자동 스캔");Button scanPick=Ui.button(this,"사진 선택 · 인식");scanRow.addView(scanCamera,Ui.weight(1));scanRow.addView(scanPick,Ui.weight(1));root.addView(scanRow,Ui.mp(this));
+        root.addView(Ui.section(this,"명함 인식"));
+        TextView help=Ui.text(this,(ScanSettings.manual(this)?"직접 촬영하고 자른 뒤":"외곽선 자동 인식·기울기 보정 후")+" 한국어와 한자를 인식합니다. 한자는 한글 독음으로 입력하고 원문을 보관합니다.",14,false);root.addView(help);
+        LinearLayout scanRow=new LinearLayout(this);Button scanCamera=Ui.button(this,"명함 촬영 · "+ScanSettings.label(this));Button scanPick=Ui.button(this,"사진 선택 · 인식");scanRow.addView(scanCamera,Ui.weight(1));scanRow.addView(scanPick,Ui.weight(1));root.addView(scanRow,Ui.mp(this));
         scanCamera.setOnClickListener(v->startAutoScan(true,REQ_OCR_CAMERA));scanPick.setOnClickListener(v->startAutoScan(true,REQ_OCR_PICK));
         Button hanja=Ui.button(this,"한자 이름 다시 인식");root.addView(hanja);hanja.setOnClickListener(v->{String path=c.get("image_front");if(path.isEmpty())Toast.makeText(this,"먼저 명함을 촬영하거나 사진을 선택하세요.",Toast.LENGTH_SHORT).show();else runOcr(path,true);});
 
@@ -64,6 +64,7 @@ public class EditActivity extends Activity {
     private void pickImage(int req){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("image/*");startActivityForResult(i,req);}
 
     private void startAutoScan(boolean ocr,int fallback){
+        if(ScanSettings.manual(this)){pendingOcr=ocr;pendingFront=fallback!=REQ_BACK_CAMERA&&fallback!=REQ_BACK_PICK;if(isCameraReq(fallback))startCamera(fallback);else pickImage(fallback);return;}
         if(scanPreparing)return;scanPreparing=true;final int generation=++scanGeneration;pendingOcr=ocr;pendingFront=fallback!=REQ_BACK_CAMERA&&fallback!=REQ_BACK_PICK;scanFallbackRequest=fallback;
         ProgressDialog dialog=ProgressDialog.show(this,"명함 외곽선 인식","스캐너를 준비합니다. 처음 사용 시 구성 요소를 다운로드할 수 있습니다…",true,false);
         dialog.setCancelable(true);dialog.setOnCancelListener(d->{if(generation==scanGeneration){scanPreparing=false;scanGeneration++;}});
