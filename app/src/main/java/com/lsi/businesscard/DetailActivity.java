@@ -18,7 +18,7 @@ public class DetailActivity extends Activity {
     @Override protected void onResume(){super.onResume();if(db!=null)show();}
     private void show(){
         c=db.get(id);if(c==null){finish();return;}
-        LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setBackgroundColor(Color.WHITE);
+        LinearLayout page=new LinearLayout(this);page.setOrientation(LinearLayout.VERTICAL);page.setFocusableInTouchMode(true);page.requestFocus();page.setBackgroundColor(Color.WHITE);
         LinearLayout bar=new LinearLayout(this);bar.setPadding(Ui.dp(this,12),Ui.dp(this,4),Ui.dp(this,12),Ui.dp(this,4));bar.setGravity(Gravity.CENTER_VERTICAL);
         Button back=Ui.button(this,"‹ 목록"),fav=Ui.button(this,c.favorite==1?"★":"☆"),edit=Ui.button(this,"수정"),more=Ui.button(this,"⋮");fav.setContentDescription("즐겨찾기 설정 또는 해제");more.setContentDescription("더 보기");bar.addView(back);bar.addView(new Space(this),Ui.weight(1));for(Button button:new Button[]{fav,edit,more}){LinearLayout.LayoutParams lp=new LinearLayout.LayoutParams(-2,-2);lp.setMargins(Ui.dp(this,4),0,0,0);bar.addView(button,lp);}page.addView(bar);page.addView(Ui.divider(this));
         back.setOnClickListener(v->finish());edit.setOnClickListener(v->editCard());fav.setOnClickListener(v->{c.favorite=c.favorite==1?0:1;db.setFavorite(id,c.favorite==1);fav.setText(c.favorite==1?"★":"☆");});more.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("명함 관리").setItems(new String[]{"정보 공유", "명함 삭제"},(d,w)->{if(w==0)shareMenu();else deleteCard();}).show());
