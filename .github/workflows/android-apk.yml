@@ -43,7 +43,7 @@ jobs:
           arch: x86_64
           ram-size: 2048M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
           script: |
             adb shell settings put system screen_off_timeout 2147483647
             adb shell settings put global stay_on_while_plugged_in 3
@@ -51,7 +51,9 @@ jobs:
             adb shell wm dismiss-keyguard
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            timeout 180s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
+            adb shell pm grant com.lsi.businesscard android.permission.CAMERA
+            if [ "${{ matrix.api }}" -lt 29 ]; then adb shell pm grant com.lsi.businesscard android.permission.WRITE_EXTERNAL_STORAGE; fi
+            timeout 300s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
             cat device-checks.txt
             adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots || true
             adb logcat -d > device-logcat.txt
@@ -97,10 +99,10 @@ jobs:
       - name: Align APK and collect verification tools
         run: |
           mkdir package
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v2.4-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -P 16 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v2.5-unsigned.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v2.4-unsigned.apk > package/apk-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v2.5-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v2.4_BUILD
+          name: BusinessCard_LSI_v2.5_BUILD
           path: package/
