@@ -52,7 +52,7 @@ jobs:
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             adb shell pm grant com.lsi.businesscard android.permission.CAMERA
-            if [ "${{ matrix.api }}" -lt 29 ]; then adb shell pm grant com.lsi.businesscard android.permission.WRITE_EXTERNAL_STORAGE; fi
+            if [ "${{ matrix.api }}" -lt 29 ]; then adb shell pm grant com.lsi.businesscard android.permission.READ_EXTERNAL_STORAGE; adb shell pm grant com.lsi.businesscard android.permission.WRITE_EXTERNAL_STORAGE; fi
             timeout 300s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
             cat device-checks.txt
             adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots || true
