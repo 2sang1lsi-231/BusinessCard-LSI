@@ -50,7 +50,7 @@ public class DbHelper extends SQLiteOpenHelper {
     }
 
     private static void repairLogoCompany(SQLiteDatabase db){
-        db.execSQL("UPDATE contacts SET note3=CASE WHEN instr(note3,'[회사명 보정 전]')>0 THEN note3 ELSE note3 || char(10) || '[회사명 보정 전] ' || company1 END, company1='대구은행' WHERE replace(company1,' ','')='대구협은행' AND (lower(website) LIKE '%dgb.co.kr%' OR lower(email1) LIKE '%@dgb.co.kr' OR lower(email2) LIKE '%@dgb.co.kr' OR lower(email3) LIKE '%@dgb.co.kr')");
+        db.execSQL("UPDATE contacts SET note3=CASE WHEN instr(note3,'[회사명 보정 전]')>0 THEN note3 ELSE note3 || char(10) || '[회사명 보정 전] ' || company1 END, company1='대구은행' WHERE replace(company1,' ','')='대구협은행' AND (lower(trim(website)) IN ('dgb.co.kr','www.dgb.co.kr','http://dgb.co.kr','https://dgb.co.kr','http://www.dgb.co.kr','https://www.dgb.co.kr','http://www.dgb.co.kr/','https://www.dgb.co.kr/') OR lower(email1) LIKE '%@dgb.co.kr' OR lower(email2) LIKE '%@dgb.co.kr' OR lower(email3) LIKE '%@dgb.co.kr')");
     }
 
     public long insert(Contact x) { return getWritableDatabase().insertOrThrow("contacts", null, x.toContentValues()); }
