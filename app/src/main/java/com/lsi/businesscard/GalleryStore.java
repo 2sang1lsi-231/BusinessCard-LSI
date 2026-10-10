@@ -32,8 +32,8 @@ public final class GalleryStore {
         StringBuilder hash=new StringBuilder();for(byte value:digest.digest())hash.append(String.format(Locale.ROOT,"%02x",value&255));
         SharedPreferences saved=ctx.getSharedPreferences("gallery_copies",Context.MODE_PRIVATE);String key=hash.toString(),previous=saved.getString(key,"");
         if(!previous.isEmpty()){try(ParcelFileDescriptor descriptor=ctx.getContentResolver().openFileDescriptor(Uri.parse(previous),"r")){if(descriptor!=null&&descriptor.getStatSize()>0)return Uri.parse(previous);}catch(Exception ignored){}}
-        String extension=path.toLowerCase(Locale.ROOT).endsWith(".png")?".png":path.toLowerCase(Locale.ROOT).endsWith(".webp")?".webp":".jpg";
-        String mime=extension.equals(".png")?"image/png":extension.equals(".webp")?"image/webp":"image/jpeg";
+        String lower=path.toLowerCase(Locale.ROOT),extension=".jpg",mime="image/jpeg";
+        for(String format:new String[]{"png","webp","heic","heif","gif","bmp"})if(lower.endsWith("."+format)){extension="."+format;mime="image/"+format;break;}
         String name="LSI_"+new SimpleDateFormat("yyyyMMdd_HHmmss",Locale.ROOT).format(new Date())+"_"+key.substring(0,12)+extension;
         ContentValues values=new ContentValues();values.put(MediaStore.Images.Media.DISPLAY_NAME,name);values.put(MediaStore.Images.Media.MIME_TYPE,mime);values.put(MediaStore.Images.Media.DATE_TAKEN,System.currentTimeMillis());
         File legacy=null;

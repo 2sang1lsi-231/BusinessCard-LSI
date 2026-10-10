@@ -17,7 +17,7 @@
             android:exported="false"
             android:grantUriPermissions="true" />
 
-        <activity android:name=".CameraScanActivity" android:exported="false" />
+        <activity android:name=".CameraScanActivity" android:exported="false" android:configChanges="orientation|screenSize" />
         <activity android:name=".PhotoEditActivity" android:exported="false" />
         <activity android:name=".EditActivity" android:exported="false" />
         <activity android:name=".DetailActivity" android:exported="false" />

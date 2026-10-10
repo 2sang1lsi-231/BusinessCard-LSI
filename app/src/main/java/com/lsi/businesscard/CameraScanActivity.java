@@ -91,7 +91,7 @@ public class CameraScanActivity extends Activity implements LifecycleOwner {
         root.addView(top,new LinearLayout.LayoutParams(-1,dp(52)));
         LinearLayout body=new LinearLayout(this);body.setOrientation(landscape?LinearLayout.HORIZONTAL:LinearLayout.VERTICAL);root.addView(body,new LinearLayout.LayoutParams(-1,0,1));
         FrameLayout finder=new FrameLayout(this);finder.setBackgroundColor(Color.BLACK);
-        preview=new PreviewView(this);preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);preview.setScaleType(PreviewView.ScaleType.FIT_CENTER);finder.addView(preview,new FrameLayout.LayoutParams(-1,-1));
+        preview=new PreviewView(this);preview.setImplementationMode(PreviewView.ImplementationMode.COMPATIBLE);preview.setScaleType(PreviewView.ScaleType.FILL_CENTER);finder.addView(preview,new FrameLayout.LayoutParams(-1,-1));
         outline=new Outline(this);finder.addView(outline,new FrameLayout.LayoutParams(-1,-1));
         finder.setOnTouchListener((v,event)->{if(event.getActionMasked()==MotionEvent.ACTION_UP){if(camera!=null&&!busy){MeteringPoint point=preview.getMeteringPointFactory().createPoint(event.getX(),event.getY());camera.getCameraControl().startFocusAndMetering(new FocusMeteringAction.Builder(point,FocusMeteringAction.FLAG_AF|FocusMeteringAction.FLAG_AE).setAutoCancelDuration(2,TimeUnit.SECONDS).build());outline.focusX=event.getX();outline.focusY=event.getY();outline.invalidate();handler.postDelayed(()->{outline.focusX=-1;outline.invalidate();},800);stableSince=0;cooldown=SystemClock.elapsedRealtime()+900;}v.performClick();}return true;});
         body.addView(finder,landscape?new LinearLayout.LayoutParams(0,-1,1):new LinearLayout.LayoutParams(-1,0,1));
@@ -135,7 +135,8 @@ public class CameraScanActivity extends Activity implements LifecycleOwner {
         main.execute(()->updateDetection(points,result,ratio,lightLevel,now));
     }catch(Exception ignored){}finally{image.close();}}
     private void updateDetection(float[] points,CardDetector.Result result,float ratio,float brightness,long now){if(!active||busy||isFinishing()||isDestroyed())return;if(dialogs>0){stableSince=0;return;}outline.ratio=ratio;
-        if(points==null){stableSince=0;stableCorners=null;if(now-lastSeen>450){lastCorners=null;outline.corners=null;outline.ready=false;}status.setText(brightness<42?"조명을 켜거나 밝은 곳에서 촬영하세요":isManual?"명함을 맞추고 촬영 버튼을 누르세요":"명함을 가이드 안에 맞춰 주세요");}
+        boolean outside=points!=null&&!outline.visible(points);if(outside)points=null;
+        if(points==null){stableSince=0;stableCorners=null;if(outside||now-lastSeen>450){lastCorners=null;outline.corners=null;outline.ready=false;}status.setText(outside?"명함의 네 모서리가 모두 보이게 맞춰 주세요":brightness<42?"조명을 켜거나 밝은 곳에서 촬영하세요":isManual?"명함을 맞추고 촬영 버튼을 누르세요":"명함을 가이드 안에 맞춰 주세요");}
         else{lastSeen=now;lastCorners=points;outline.corners=points;outline.ready=false;
             if(CardDetector.drift(stableCorners,points)>.014f){stableSince=now;stableCorners=points.clone();}
             if(stableSince==0){stableSince=now;stableCorners=points.clone();}
@@ -167,6 +168,7 @@ public class CameraScanActivity extends Activity implements LifecycleOwner {
     }
     private void finishPhoto(String path,String error){if(isFinishing()||isDestroyed()){ImageUtil.deleteIfPrivateCard(this,path);return;}setResult(RESULT_OK,new Intent().putExtra("path",path).putExtra("captured",rawCaptured).putExtra("gallery_error",error));finish();}
     @Override protected void onStart(){super.onStart();lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_START);}
+    @Override public void onConfigurationChanged(Configuration configuration){super.onConfigurationChanged(configuration);if(busy)return;if(provider!=null)provider.unbindAll();started=false;capture=null;camera=null;torch=false;lastCorners=null;stableCorners=null;stableSince=0;build();preview.post(this::startCamera);}
     @Override protected void onResume(){super.onResume();active=true;stableSince=0;cooldown=SystemClock.elapsedRealtime()+1000;lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_RESUME);}
     @Override protected void onPause(){active=false;lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_PAUSE);super.onPause();}
     @Override protected void onStop(){lifecycle.handleLifecycleEvent(Lifecycle.Event.ON_STOP);super.onStop();}
@@ -176,9 +178,12 @@ public class CameraScanActivity extends Activity implements LifecycleOwner {
     private static final class Outline extends View {
         private final Paint paint=new Paint(Paint.ANTI_ALIAS_FLAG);private final Path path=new Path();float[] corners;float ratio=.75f,focusX=-1,focusY;boolean ready;
         Outline(Context context){super(context);setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);}
-        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);float w=getWidth(),h=getHeight(),pw=Math.min(w,h*ratio),ph=pw/ratio;RectF image=new RectF((w-pw)/2,(h-ph)/2,(w+pw)/2,(h+ph)/2);paint.setStrokeWidth(Ui.dp(getContext(),2));paint.setStyle(Paint.Style.STROKE);paint.setColor(0xbbffffff);
-            if(corners==null){float gw=Math.min(image.width()*.86f,image.height()*1.65f*.76f),gh=gw/1.65f;RectF guide=new RectF(image.centerX()-gw/2,image.centerY()-gh/2,image.centerX()+gw/2,image.centerY()+gh/2);float len=Ui.dp(getContext(),22);for(int i=0;i<4;i++){float x=i==0||i==3?guide.left:guide.right,y=i<2?guide.top:guide.bottom,dx=i==0||i==3?len:-len,dy=i<2?len:-len;canvas.drawLine(x,y,x+dx,y,paint);canvas.drawLine(x,y,x,y+dy,paint);}}
-            else{path.reset();for(int i=0;i<4;i++){float x=image.left+corners[i*2]*image.width(),y=image.top+corners[i*2+1]*image.height();if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}path.close();paint.setColor(ready?GREEN:BLUE);paint.setStyle(Paint.Style.FILL);paint.setColor(ready?0x2263dfa2:0x2269c7ff);canvas.drawPath(path,paint);paint.setStyle(Paint.Style.STROKE);paint.setColor(ready?GREEN:BLUE);canvas.drawPath(path,paint);}
+        RectF imageBounds(){float w=getWidth(),h=getHeight(),pw=Math.max(w,h*ratio),ph=pw/ratio;return new RectF((w-pw)/2,(h-ph)/2,(w+pw)/2,(h+ph)/2);}
+        boolean visible(float[] points){if(getWidth()==0||getHeight()==0)return false;RectF frame=imageBounds();float margin=Ui.dp(getContext(),6);for(int i=0;i<8;i+=2){float x=frame.left+points[i]*frame.width(),y=frame.top+points[i+1]*frame.height();if(x<margin||x>getWidth()-margin||y<margin||y>getHeight()-margin)return false;}return true;}
+        void border(Canvas canvas,Path shape,int color){paint.setStyle(Paint.Style.STROKE);paint.setStrokeWidth(Ui.dp(getContext(),4));paint.setColor(0xbb000000);canvas.drawPath(shape,paint);paint.setStrokeWidth(Ui.dp(getContext(),2));paint.setColor(color);canvas.drawPath(shape,paint);}
+        @Override protected void onDraw(Canvas canvas){super.onDraw(canvas);RectF image=imageBounds();paint.setStrokeWidth(Ui.dp(getContext(),2));paint.setStyle(Paint.Style.STROKE);
+            if(corners==null){float gw=Math.min(getWidth()*.86f,getHeight()*1.65f*.76f),gh=gw/1.65f;RectF guide=new RectF(getWidth()/2f-gw/2,getHeight()/2f-gh/2,getWidth()/2f+gw/2,getHeight()/2f+gh/2);float len=Ui.dp(getContext(),22);path.reset();for(int i=0;i<4;i++){float x=i==0||i==3?guide.left:guide.right,y=i<2?guide.top:guide.bottom,dx=i==0||i==3?len:-len,dy=i<2?len:-len;path.moveTo(x+dx,y);path.lineTo(x,y);path.lineTo(x,y+dy);}border(canvas,path,0xeeffffff);}
+            else{path.reset();for(int i=0;i<4;i++){float x=image.left+corners[i*2]*image.width(),y=image.top+corners[i*2+1]*image.height();if(i==0)path.moveTo(x,y);else path.lineTo(x,y);}path.close();paint.setStyle(Paint.Style.FILL);paint.setColor(ready?0x2263dfa2:0x2269c7ff);canvas.drawPath(path,paint);border(canvas,path,ready?GREEN:BLUE);}
             if(focusX>=0){paint.setColor(BLUE);paint.setStyle(Paint.Style.STROKE);canvas.drawCircle(focusX,focusY,Ui.dp(getContext(),20),paint);}
         }
     }
