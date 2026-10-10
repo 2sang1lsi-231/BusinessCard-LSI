@@ -33,7 +33,7 @@ public final class OcrHelper {
             String text=line.getText().trim();int han=0;for(int i=0;i<text.length();){int cp=text.codePointAt(i);i+=Character.charCount(cp);if(HanjaReading.isHan(cp))han++;}if(han==0||seen.contains(text.replaceAll("\\s+","")))continue;
             // A Chinese recognizer can interpret Hangul shapes as Han. Keep Korean lines when they overlap.
             boolean hangulOverlap=false;Rect bounds=line.getBoundingBox();
-            for(Text.TextBlock kb:korean.getTextBlocks())for(Text.Line kl:kb.getLines())if(bounds!=null&&kl.getBoundingBox()!=null&&Rect.intersects(bounds,kl.getBoundingBox())&&kl.getText().matches(".*[가-힣].*"))hangulOverlap=true;
+            for(Text.TextBlock kb:korean.getTextBlocks())for(Text.Line kl:kb.getLines())if(bounds!=null&&kl.getBoundingBox()!=null&&Rect.intersects(bounds,kl.getBoundingBox())&&kl.getText().replaceAll("[^가-힣]","").length()>=2)hangulOverlap=true;
             if(!hangulOverlap){result.append('\n').append(text);seen.add(text.replaceAll("\\s+",""));}
         }
         return result.toString();
