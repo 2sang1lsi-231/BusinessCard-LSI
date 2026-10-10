@@ -9,7 +9,8 @@ for line in archive.read('Unihan_Readings.txt').decode('utf-8').splitlines():
     if line.startswith('#') or not line.strip(): continue
     code, key, value = line.split('\t', 2)
     if key == 'kHangul':
-        readings = list(dict.fromkeys(part.split(':')[0] for part in value.split()))
+        parts = sorted(value.split(), key=lambda part: ('E' not in part.split(':')[1], '0' not in part.split(':')[1]))
+        readings = list(dict.fromkeys(part.split(':')[0] for part in parts))
         rows[int(code[2:], 16)] = readings
 assert len(rows) > 8000 and '한' in rows[0x6F22]
 (out / 'hanja-readings.tsv').write_text(''.join(f'{code:X}\t{" ".join(readings)}\n' for code, readings in sorted(rows.items())), encoding='utf-8')

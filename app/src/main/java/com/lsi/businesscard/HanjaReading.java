@@ -22,6 +22,7 @@ public final class HanjaReading {
         if(readings==null)return text;
         // Android ICU and desktop Java differ in accepted Unicode regex names.
         // Walk code points directly, including supplementary Han and compatibility characters.
+        text=text.replace("株式會社","주식회사").replace("株式会社","주식회사").replace("銀行","은행").replace("金融","금융").replace("行長","행장").replace("部長","부장").replace("課長","과장").replace("電話","전화").replace("行動","행동").replace("行政","행정");
         StringBuilder out=new StringBuilder();int offset=0;
         while(offset<text.length()){
             int cp=text.codePointAt(offset);
@@ -35,9 +36,10 @@ public final class HanjaReading {
             }
             String word=Normalizer.normalize(text.substring(start,end).replaceAll("[ \\t]+",""),Normalizer.Form.NFKC);
             int[] chars=new int[word.codePointCount(0,word.length())];for(int k=0,j=0;k<word.length();j++){chars[j]=word.codePointAt(k);k+=Character.charCount(chars[j]);}
-            boolean name=chars.length>=2&&chars.length<=4&&isSurname(chars[0])&&isNameLine(text,start,end);
+            boolean name=chars.length>=2&&chars.length<=4&&isSurname(chars[0])&&isNameLine(text,start,end)&&!word.matches(".*(?:銀行|金融|公司|株式|大學|工業|曜日|會社).*");
             for(int i=0;i<chars.length;i++){
                 String[] values=readings.get(chars[i]);String value=values==null?new String(Character.toChars(chars[i])):values[0];
+                if(name&&i==0){if(chars[i]==0x91d1)value="김";else if(chars[i]==0x6c88)value="심";}
                 if(i==0||(name&&i==1))value=initialSound(value);
                 out.append(value);
             }
