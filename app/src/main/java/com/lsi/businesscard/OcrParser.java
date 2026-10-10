@@ -24,7 +24,7 @@ public final class OcrParser {
 
     public static Map<String,String> parse(String raw) {
         LinkedHashMap<String,String> out = new LinkedHashMap<>();
-        List<String> lines = cleanLines(raw);
+        List<String> lines = cleanLines(HanjaReading.convert(raw));
         StringBuilder joinedBuilder=new StringBuilder();for(String line:lines){if(joinedBuilder.length()>0)joinedBuilder.append("\n");joinedBuilder.append(line);}String joined=joinedBuilder.toString();
 
         List<String> emails = matches(EMAIL, joined);

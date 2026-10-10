@@ -1,19 +1,5 @@
-BusinessCard LSI v1.2 build/verification status
+BusinessCard LSI v2.3
 
-[Completed]
-- Android project source completed
-- New: camera capture + gallery pick for card images
-- New: on-device Korean OCR integration using ML Kit
-- New: conservative OCR field parser (name/company/title/department/phone/email/address/web)
-- New: OCR fills only empty fields and preserves raw OCR text for review
-- Java sources syntax/type-checked against Android API/ML Kit-compatible local stubs: PASS
-- AndroidManifest XML well-formedness: PASS
-- CamCard XLSX parser test with supplied export: PASS (7 records, 41 columns)
-- CamCard image filename match test with supplied ZIP: PASS (9/9)
-- Duplicate heuristic regression test: PASS (7 distinct records remain distinct; exact clone detected)
-- GitHub Actions APK build workflow included
-
-[Environment limitation]
-- The current local container does not contain Android SDK/Build Tools/Gradle and cannot download them directly.
-- Therefore the final APK binary cannot be compiled inside this container.
-- The included GitHub Actions workflow compiles the installable APK once the project is pushed to a connected GitHub repository.
+Changes: live document scanner edge detection/perspective correction, bundled Hanja OCR with Korean readings and retained originals, compact coloured menus.
+Verification: pending Android 26/35 CI and release build.
+Scanner UI is supplied by Google Play services and requires an initial module download; physical camera capture is not available in the CI emulator.

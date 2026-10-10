@@ -63,16 +63,16 @@ public final class Ui {
     public static int dp(Context c, int v) { return Math.round(v * c.getResources().getDisplayMetrics().density); }
     public static TextView text(Context c, String s, float sp, boolean bold) {
         TextView v = new TextView(c); v.setText(s); v.setIncludeFontPadding(false); v.setTextSize(sp*textScale(c)); v.setTextColor(Color.rgb(32,33,36));
-        v.setTypeface(gothic(c), bold?Typeface.BOLD:Typeface.NORMAL); v.setPadding(0, dp(c,4), 0, dp(c,4)); return v;
+        v.setTypeface(gothic(c), bold?Typeface.BOLD:Typeface.NORMAL); v.setPadding(0, dp(c,2), 0, dp(c,2)); return v;
     }
-    public static TextView label(Context c,String s){TextView v=text(c,s,13,true);v.setTextColor(Color.rgb(85,92,101));v.setPadding(0,dp(c,10),0,0);return v;}
+    public static TextView label(Context c,String s){TextView v=text(c,s,13,true);v.setTextColor(Color.rgb(85,92,101));v.setPadding(0,dp(c,6),0,0);return v;}
     public static Button button(Context c, String s) { Button b = new Button(c); b.setText(s);b.setIncludeFontPadding(false); b.setAllCaps(false); b.setTypeface(gothic(c), Typeface.NORMAL); b.setTextSize(14*textScale(c));b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));b.setMinWidth(dp(c,48));b.setMinimumWidth(dp(c,48));b.setPadding(dp(c,10),dp(c,6),dp(c,10),dp(c,6));b.setElevation(0);b.setStateListAnimator(null);styleButton(b,false);return b; }
-    public static void styleButton(Button b,boolean primary){Context c=b.getContext();GradientDrawable shape=rounded(primary?Color.rgb(217,237,255):Color.WHITE,10,c);shape.setStroke(dp(c,1),primary?Color.rgb(185,220,250):Color.rgb(222,228,235));b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.rgb(197,222,246)),shape,null));b.setTextColor(Color.rgb(30,91,147));}
+    public static void styleButton(Button b,boolean primary){Context c=b.getContext();GradientDrawable shape=rounded(primary?Color.rgb(25,118,210):Color.rgb(235,244,252),10,c);shape.setStroke(dp(c,1),primary?Color.rgb(25,118,210):Color.rgb(211,229,245));b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.rgb(197,222,246)),shape,null));b.setTextColor(primary?Color.WHITE:Color.rgb(30,91,147));}
     public static Button primary(Context c,String s){Button b=button(c,s);styleButton(b,true);return b;}
     public static void compactText(TextView v,int lines){v.setPadding(0,0,0,0);v.setMaxLines(lines);v.setEllipsize(android.text.TextUtils.TruncateAt.END);}
     public static View divider(Context c){View v=new View(c);v.setBackgroundColor(Color.rgb(232,236,241));v.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(c,1)));return v;}
     public static EditText edit(Context c, String hint) { EditText e = new EditText(c);e.setIncludeFontPadding(false); e.setHint(hint); e.setTypeface(gothic(c), Typeface.NORMAL); e.setTextSize(16*textScale(c)); e.setSingleLine(true); e.setPadding(dp(c,4),dp(c,7),dp(c,4),dp(c,7)); return e; }
-    public static TextView section(Context c,String s){TextView t=text(c,s,18,true);t.setTextColor(Color.rgb(25,118,210));t.setPadding(0,dp(c,16),0,dp(c,4));return t;}
+    public static TextView section(Context c,String s){TextView t=text(c,s,18,true);t.setTextColor(Color.rgb(25,118,210));t.setPadding(0,dp(c,10),0,dp(c,3));return t;}
     public static LinearLayout.LayoutParams mp(Context c) { return new LinearLayout.LayoutParams(-1,-2); }
     public static LinearLayout.LayoutParams weight(int w) { return new LinearLayout.LayoutParams(0,-2,w); }
     public static View gap(Context c, int h) { View v = new View(c); v.setLayoutParams(new LinearLayout.LayoutParams(1,dp(c,h))); return v; }

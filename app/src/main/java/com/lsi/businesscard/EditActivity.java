@@ -14,16 +14,17 @@ import java.io.File;
 import java.util.*;
 
 public class EditActivity extends Activity {
-    private static final int REQ_FRONT_PICK=201,REQ_BACK_PICK=202,REQ_FRONT_CAMERA=203,REQ_BACK_CAMERA=204,REQ_OCR_PICK=205,REQ_OCR_CAMERA=206,REQ_CROP=207;
+    private static final int REQ_FRONT_PICK=201,REQ_BACK_PICK=202,REQ_FRONT_CAMERA=203,REQ_BACK_CAMERA=204,REQ_OCR_PICK=205,REQ_OCR_CAMERA=206,REQ_CROP=207,REQ_AUTO_SCAN=208;
     private DbHelper db; private Contact c; private final Map<String,EditText> fields=new LinkedHashMap<>();
     private TextView frontStatus,backStatus; private ImageView frontPreview,backPreview; private boolean isNew;
+    private int scanFallbackRequest=REQ_OCR_CAMERA;private boolean scanPreparing=false;
     private boolean scanNext=false,pendingOcr=false,pendingFront=true;private String cropInput="";
     private File pendingCameraFile; private String originalFront="",originalBack=""; private final Set<String> newlyCreatedImages=new HashSet<>();
 
     @Override public void onCreate(Bundle b){
         super.onCreate(b);db=new DbHelper(this);long id=getIntent().getLongExtra("id",-1);c=id>0?db.get(id):new Contact();if(c==null)c=new Contact();isNew=c.id<=0;
-        if(b!=null){c.id=b.getLong("id",c.id);c.favorite=b.getInt("favorite",0);for(String key:DbHelper.TEXT_COLUMNS)if(b.containsKey(key))c.put(key,b.getString(key));isNew=c.id<=0;String camera=b.getString("camera","");if(!camera.isEmpty())pendingCameraFile=new File(camera);pendingOcr=b.getBoolean("pendingOcr");pendingFront=b.getBoolean("pendingFront",true);cropInput=b.getString("cropInput","");ArrayList<String> added=b.getStringArrayList("newImages");if(added!=null)newlyCreatedImages.addAll(added);}
-        originalFront=b==null?c.get("image_front"):b.getString("originalFront","");originalBack=b==null?c.get("image_back"):b.getString("originalBack","");build();if(b==null&&isNew&&getIntent().getBooleanExtra("scan",false))startCamera(REQ_OCR_CAMERA);
+        if(b!=null){c.id=b.getLong("id",c.id);c.favorite=b.getInt("favorite",0);for(String key:DbHelper.TEXT_COLUMNS)if(b.containsKey(key))c.put(key,b.getString(key));isNew=c.id<=0;String camera=b.getString("camera","");if(!camera.isEmpty())pendingCameraFile=new File(camera);scanFallbackRequest=b.getInt("scanFallbackRequest",REQ_OCR_CAMERA);pendingOcr=b.getBoolean("pendingOcr");pendingFront=b.getBoolean("pendingFront",true);cropInput=b.getString("cropInput","");ArrayList<String> added=b.getStringArrayList("newImages");if(added!=null)newlyCreatedImages.addAll(added);}
+        originalFront=b==null?c.get("image_front"):b.getString("originalFront","");originalBack=b==null?c.get("image_back"):b.getString("originalBack","");build();if(b==null&&isNew&&getIntent().getBooleanExtra("scan",false))startAutoScan(true,REQ_OCR_CAMERA);
     }
 
     private void build(){
@@ -31,9 +32,10 @@ public class EditActivity extends Activity {
         root.addView(Ui.text(this,isNew?"새 명함":"명함 수정",26,true));
 
         root.addView(Ui.section(this,"명함 자동 인식"));
-        TextView help=Ui.text(this,"명함을 촬영하거나 사진을 선택하면 한국어 글자를 기기 안에서 인식해 빈 항목을 자동으로 채웁니다. 저장 전에 자유롭게 수정할 수 있습니다.",14,false);root.addView(help);
-        LinearLayout scanRow=new LinearLayout(this);Button scanCamera=Ui.button(this,"촬영 · 자동입력");Button scanPick=Ui.button(this,"사진 · 자동입력");scanRow.addView(scanCamera,Ui.weight(1));scanRow.addView(scanPick,Ui.weight(1));root.addView(scanRow,Ui.mp(this));
-        scanCamera.setOnClickListener(v->startCamera(REQ_OCR_CAMERA));scanPick.setOnClickListener(v->pickImage(REQ_OCR_PICK));
+        TextView help=Ui.text(this,"명함 외곽선 자동 인식·기울기 보정 후 한국어와 한자를 인식합니다. 한자는 한글 독음으로 입력하고 원문을 보관합니다.",14,false);root.addView(help);
+        LinearLayout scanRow=new LinearLayout(this);Button scanCamera=Ui.button(this,"외곽선 자동 스캔");Button scanPick=Ui.button(this,"사진 선택 · 인식");scanRow.addView(scanCamera,Ui.weight(1));scanRow.addView(scanPick,Ui.weight(1));root.addView(scanRow,Ui.mp(this));
+        scanCamera.setOnClickListener(v->startAutoScan(true,REQ_OCR_CAMERA));scanPick.setOnClickListener(v->startAutoScan(true,REQ_OCR_PICK));
+        Button hanja=Ui.button(this,"한자 이름 다시 인식");root.addView(hanja);hanja.setOnClickListener(v->{String path=c.get("image_front");if(path.isEmpty())Toast.makeText(this,"먼저 명함을 촬영하거나 사진을 선택하세요.",Toast.LENGTH_SHORT).show();else runOcr(path,true);});
 
         root.addView(Ui.section(this,"기본 정보"));add(root,"name","이름",InputType.TYPE_CLASS_TEXT,false);add(root,"company1","회사",InputType.TYPE_CLASS_TEXT,false);add(root,"department1","부서",InputType.TYPE_CLASS_TEXT,false);add(root,"title1","직위",InputType.TYPE_CLASS_TEXT,false);add(root,"group_name","그룹",InputType.TYPE_CLASS_TEXT,false);
         root.addView(Ui.section(this,"만남 기록"));add(root,"met_at","만난 날짜 (YYYY-MM-DD)",InputType.TYPE_CLASS_TEXT,false);fields.get("met_at").setFocusable(false);fields.get("met_at").setOnClickListener(v->pickMeetingDate());add(root,"met_place","만난 장소",InputType.TYPE_CLASS_TEXT,false);add(root,"meeting_notes","만남 / 연락 기록",InputType.TYPE_CLASS_TEXT|InputType.TYPE_TEXT_FLAG_MULTI_LINE,true);
@@ -55,12 +57,20 @@ public class EditActivity extends Activity {
         ImageView preview=new ImageView(this);preview.setAdjustViewBounds(true);preview.setScaleType(ImageView.ScaleType.FIT_CENTER);root.addView(preview,new LinearLayout.LayoutParams(-1,Ui.dp(this,145)));if(front)frontPreview=preview;else backPreview=preview;updatePreview(key,preview);
         LinearLayout row=new LinearLayout(this);Button camera=Ui.button(this,"촬영");Button pick=Ui.button(this,"사진 선택");Button remove=Ui.button(this,"삭제");row.addView(camera,Ui.weight(1));row.addView(pick,Ui.weight(1));row.addView(remove,Ui.weight(1));root.addView(row,Ui.mp(this));
         Button edit=Ui.button(this,"자르기 · 회전");root.addView(edit);edit.setOnClickListener(v->{if(c.get(key).isEmpty()){Toast.makeText(this,"먼저 사진을 선택하세요.",Toast.LENGTH_SHORT).show();return;}openCrop(c.get(key),front,false);});
-        camera.setOnClickListener(v->startCamera(reqCamera));pick.setOnClickListener(v->pickImage(reqPick));remove.setOnClickListener(v->{String old=c.get(key);c.put(key,"");if(status!=null)status.setText(label+": 없음");preview.setImageDrawable(null);if(newlyCreatedImages.remove(old))ImageUtil.deleteIfPrivateCard(this,old);});return status;
+        camera.setOnClickListener(v->startAutoScan(false,reqCamera));pick.setOnClickListener(v->startAutoScan(false,reqPick));remove.setOnClickListener(v->{String old=c.get(key);c.put(key,"");if(status!=null)status.setText(label+": 없음");preview.setImageDrawable(null);if(newlyCreatedImages.remove(old))ImageUtil.deleteIfPrivateCard(this,old);});return status;
     }
 
     private void updatePreview(String key,ImageView preview){String p=c.get(key);if(p.isEmpty()||!new File(p).isFile()){preview.setImageDrawable(null);return;}Bitmap b=ImageUtil.thumbnail(p,900);if(b!=null)preview.setImageBitmap(b);}
     private void pickImage(int req){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("image/*");startActivityForResult(i,req);}
 
+    private void startAutoScan(boolean ocr,int fallback){
+        if(scanPreparing)return;scanPreparing=true;pendingOcr=ocr;pendingFront=fallback!=REQ_BACK_CAMERA&&fallback!=REQ_BACK_PICK;scanFallbackRequest=fallback;
+        ProgressDialog dialog=ProgressDialog.show(this,"명함 외곽선 인식","스캐너를 준비합니다. 처음 사용 시 구성 요소를 다운로드할 수 있습니다…",true,false);
+        DocumentScan.launch(this,REQ_AUTO_SCAN,()->{scanPreparing=false;dialog.dismiss();},error->{scanPreparing=false;dialog.dismiss();new AlertDialog.Builder(this).setTitle("자동 스캐너 준비 실패").setMessage("현재 기기에서 자동 스캐너를 열 수 없습니다. 인터넷 연결과 Google Play 서비스를 확인하세요. 일반 촬영 또는 사진 선택 후 수동 자르기를 사용할 수 있습니다.").setNegativeButton("취소",null).setPositiveButton("일반 촬영 / 사진 선택",(d,w)->{if(isCameraReq(scanFallbackRequest))startCamera(scanFallbackRequest);else pickImage(scanFallbackRequest);}).show();});
+    }
+    void acceptScannedImage(Uri uri)throws Exception{
+        String path=ImageUtil.copyUriToCards(this,uri,pendingFront?"scan_front":"scan_back");attachPhoto(path);if(pendingOcr)runOcr(path);
+    }
     private void startCamera(int req){
         try{
             pendingCameraFile=CardFileProvider.newCameraFile(this,(req==REQ_BACK_CAMERA?"back":"front"));Uri uri=CardFileProvider.uriFor(this,pendingCameraFile);
@@ -74,6 +84,7 @@ public class EditActivity extends Activity {
     @Override protected void onActivityResult(int req,int result,Intent data){
         super.onActivityResult(req,result,data);if(result!=RESULT_OK){if(isCameraReq(req)&&pendingCameraFile!=null){pendingCameraFile.delete();pendingCameraFile=null;}if(req==REQ_CROP&&!cropInput.equals(c.get("image_front"))&&!cropInput.equals(c.get("image_back"))&&newlyCreatedImages.remove(cropInput))ImageUtil.deleteIfPrivateCard(this,cropInput);return;}
         try{
+            if(req==REQ_AUTO_SCAN){Uri uri=DocumentScan.image(data);if(uri==null)throw new java.io.IOException("스캔 결과에 명함 사진이 없습니다.");acceptScannedImage(uri);return;}
             if(req==REQ_CROP){if(data==null)return;String path=data.getStringExtra("path");if(path==null)return;attachPhoto(path);if(!cropInput.equals(path)&&!cropInput.equals(c.get("image_front"))&&!cropInput.equals(c.get("image_back"))&&newlyCreatedImages.remove(cropInput))ImageUtil.deleteIfPrivateCard(this,cropInput);if(pendingOcr)runOcr(path);return;}
             if(req<REQ_FRONT_PICK||req>REQ_OCR_CAMERA)return;
             boolean ocr=req==REQ_OCR_PICK||req==REQ_OCR_CAMERA;boolean front=req==REQ_FRONT_PICK||req==REQ_FRONT_CAMERA||ocr;String path;
@@ -85,12 +96,14 @@ public class EditActivity extends Activity {
 
     private static boolean isCameraReq(int req){return req==REQ_FRONT_CAMERA||req==REQ_BACK_CAMERA||req==REQ_OCR_CAMERA;}
 
-    private void runOcr(String path){
+    private void runOcr(String path){runOcr(path,false);}
+    private void runOcr(String path,boolean hanjaOnly){
         ProgressDialog pd=ProgressDialog.show(this,"명함 글자 인식","사진에서 이름·회사·전화번호 등을 찾고 있습니다…",true,false);
-        OcrHelper.recognize(this,path,new OcrHelper.Callback(){
-            public void onSuccess(String text){runOnUiThread(()->{if(isFinishing()||isDestroyed())return;pd.dismiss();Map<String,String> parsed=OcrParser.parse(text);int applied=applyOcr(parsed);new AlertDialog.Builder(EditActivity.this).setTitle("글자 인식 완료").setMessage(OcrParser.summary(parsed)+"\n\n빈 항목 "+applied+"개를 자동 입력했습니다. 저장 전 내용을 확인해 주세요.").setPositiveButton("확인",null).setNeutralButton("인식 원문",(d,w)->showOcrText(text)).show();});}
+        OcrHelper.Callback callback=new OcrHelper.Callback(){
+            public void onSuccess(String text){runOnUiThread(()->{if(isFinishing()||isDestroyed())return;pd.dismiss();Map<String,String> parsed=OcrParser.parse(text);int applied=applyOcr(parsed);String alternatives=HanjaReading.alternatives(text);if(hanjaOnly){EditText notes=fields.get("note3");String original=notes.getText().toString();if(!original.contains(text.trim()))notes.setText(original+"\n\n[한자 재인식 원문]\n"+text.trim());}new AlertDialog.Builder(EditActivity.this).setTitle("글자 인식 완료").setMessage(OcrParser.summary(parsed)+"\n\n빈 항목 "+applied+"개를 자동 입력했습니다. 저장 전 내용을 확인해 주세요."+(alternatives.isEmpty()?"":"\n\n여러 독음이 있는 한자\n"+alternatives)).setPositiveButton("확인",null).setNeutralButton("인식 원문",(d,w)->showOcrText(text)).setNegativeButton(hanjaOnly&&parsed.containsKey("name")?"이름을 "+parsed.get("name")+"로 변경":null,(d,w)->{if(hanjaOnly&&parsed.containsKey("name"))fields.get("name").setText(parsed.get("name"));}).show();});}
             public void onError(Exception e){runOnUiThread(()->{if(isFinishing()||isDestroyed())return;pd.dismiss();new AlertDialog.Builder(EditActivity.this).setTitle("글자 인식 실패").setMessage(msg(e)+"\n사진은 정상 저장되었습니다. 필요한 항목을 직접 입력해 주세요.").setPositiveButton("확인",null).show();});}
-        });
+        };
+        if(hanjaOnly)OcrHelper.recognizeHanja(this,path,callback);else OcrHelper.recognize(this,path,callback);
     }
 
     private int applyOcr(Map<String,String> parsed){int n=0;for(Map.Entry<String,String> x:parsed.entrySet()){EditText e=fields.get(x.getKey());if(e==null||x.getValue()==null||x.getValue().trim().isEmpty())continue;if(e.getText().toString().trim().isEmpty()){e.setText(x.getValue().trim());n++;}}return n;}
@@ -105,7 +118,7 @@ public class EditActivity extends Activity {
 
     private void afterSave(){if(scanNext)startActivity(new Intent(this,EditActivity.class).putExtra("scan",true));finish();}
     private void pickMeetingDate(){Calendar cal=Calendar.getInstance();try{java.text.SimpleDateFormat f=new java.text.SimpleDateFormat("yyyy-MM-dd",Locale.KOREA);f.setLenient(false);cal.setTime(f.parse(fields.get("met_at").getText().toString()));}catch(Exception ignored){}new DatePickerDialog(this,(v,y,m,d)->fields.get("met_at").setText(String.format(Locale.ROOT,"%04d-%02d-%02d",y,m+1,d)),cal.get(Calendar.YEAR),cal.get(Calendar.MONTH),cal.get(Calendar.DAY_OF_MONTH)).show();}
-    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);for(Map.Entry<String,EditText> e:fields.entrySet())c.put(e.getKey(),e.getValue().getText().toString());for(String key:DbHelper.TEXT_COLUMNS)b.putString(key,c.get(key));b.putLong("id",c.id);b.putInt("favorite",c.favorite);b.putString("camera",pendingCameraFile==null?"":pendingCameraFile.getAbsolutePath());b.putBoolean("pendingOcr",pendingOcr);b.putBoolean("pendingFront",pendingFront);b.putString("cropInput",cropInput);b.putStringArrayList("newImages",new ArrayList<>(newlyCreatedImages));b.putString("originalFront",originalFront);b.putString("originalBack",originalBack);}
+    @Override protected void onSaveInstanceState(Bundle b){super.onSaveInstanceState(b);for(Map.Entry<String,EditText> e:fields.entrySet())c.put(e.getKey(),e.getValue().getText().toString());for(String key:DbHelper.TEXT_COLUMNS)b.putString(key,c.get(key));b.putLong("id",c.id);b.putInt("favorite",c.favorite);b.putString("camera",pendingCameraFile==null?"":pendingCameraFile.getAbsolutePath());b.putInt("scanFallbackRequest",scanFallbackRequest);b.putBoolean("pendingOcr",pendingOcr);b.putBoolean("pendingFront",pendingFront);b.putString("cropInput",cropInput);b.putStringArrayList("newImages",new ArrayList<>(newlyCreatedImages));b.putString("originalFront",originalFront);b.putString("originalBack",originalBack);}
     private void cleanupOriginalReplacedImages(){if(!originalFront.isEmpty()&&!originalFront.equals(c.get("image_front")))db.cleanupImageIfUnused(originalFront);if(!originalBack.isEmpty()&&!originalBack.equals(c.get("image_back")))db.cleanupImageIfUnused(originalBack);}
     private void cleanupUnsavedImages(){for(String p:new ArrayList<>(newlyCreatedImages))ImageUtil.deleteIfPrivateCard(this,p);newlyCreatedImages.clear();if(pendingCameraFile!=null)pendingCameraFile.delete();}
     @Override public void onBackPressed(){cleanupUnsavedImages();super.onBackPressed();}
