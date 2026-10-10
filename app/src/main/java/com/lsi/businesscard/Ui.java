@@ -27,12 +27,16 @@ public final class Ui {
     // Apply insets once at the outer frame, keeping content padding and scroll
     // behavior intact. Older Android versions retain the platform's safe decor.
     public static void setContentView(Activity activity, View content) {
-        final int background = Color.rgb(245,246,248);
+        setContentView(activity,content,false);
+    }
+    public static void setContentView(Activity activity, View content, boolean dark) {
+        final int background = dark ? Color.rgb(21,25,31) : Color.rgb(245,246,248);
         activity.getWindow().setStatusBarColor(background);
         activity.getWindow().setNavigationBarColor(background);
         View decor = activity.getWindow().getDecorView();
         int flags = decor.getSystemUiVisibility() | View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR;
         if (Build.VERSION.SDK_INT >= 26) flags |= View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR;
+        if(dark) flags &= ~(View.SYSTEM_UI_FLAG_LIGHT_STATUS_BAR | (Build.VERSION.SDK_INT>=26?View.SYSTEM_UI_FLAG_LIGHT_NAVIGATION_BAR:0));
         decor.setSystemUiVisibility(flags);
         FrameLayout safe = new FrameLayout(activity);
         safe.setBackgroundColor(background);
@@ -54,7 +58,7 @@ public final class Ui {
             if (controller != null) {
                 int appearance = WindowInsetsController.APPEARANCE_LIGHT_STATUS_BARS
                         | WindowInsetsController.APPEARANCE_LIGHT_NAVIGATION_BARS;
-                controller.setSystemBarsAppearance(appearance, appearance);
+                controller.setSystemBarsAppearance(dark?0:appearance, appearance);
             }
             safe.requestApplyInsets();
         }

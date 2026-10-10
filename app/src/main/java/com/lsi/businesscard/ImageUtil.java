@@ -14,12 +14,22 @@ public final class ImageUtil {
 
     public static Bitmap thumbnail(String path,int maxPx){
         if(path==null||path.isEmpty())return null;
-        String key=path+"@"+maxPx;Bitmap b=CACHE.get(key);if(b!=null&&!b.isRecycled())return b;
+        File file=new File(path);String key=path+"@"+file.lastModified()+":"+file.length()+"@"+maxPx;Bitmap b=CACHE.get(key);if(b!=null&&!b.isRecycled())return b;
         BitmapFactory.Options o=new BitmapFactory.Options();o.inJustDecodeBounds=true;BitmapFactory.decodeFile(path,o);if(o.outWidth<=0||o.outHeight<=0)return null;
         int s=1;while(o.outWidth/s>maxPx*2||o.outHeight/s>maxPx*2)s*=2;o.inJustDecodeBounds=false;o.inSampleSize=Math.max(1,s);o.inPreferredConfig=Bitmap.Config.RGB_565;
         b=BitmapFactory.decodeFile(path,o);b=applyOrientation(path,b);if(b!=null)CACHE.put(key,b);return b;
     }
 
+    /** Same persisted display orientation for list, detail and enlarged viewer. */
+    public static Bitmap forDisplay(Context context,String path,int maxPx){
+        Bitmap image=thumbnail(path,maxPx);if(image==null)return null;
+        int turns=context.getSharedPreferences("photo_view",Context.MODE_PRIVATE).getInt("turn:"+path,0);
+        if(turns==0)return image;
+        File file=new File(path);String key="view:"+path+":"+file.lastModified()+":"+file.length()+":"+maxPx+":"+turns;
+        Bitmap rotated=CACHE.get(key);if(rotated!=null&&!rotated.isRecycled())return rotated;
+        Matrix matrix=new Matrix();matrix.postRotate(turns*90);
+        rotated=Bitmap.createBitmap(image,0,0,image.getWidth(),image.getHeight(),matrix,true);CACHE.put(key,rotated);return rotated;
+    }
     public static Bitmap oriented(String path,int maxPx){return thumbnail(path,maxPx);}
     public static Bitmap forRecognition(String path,int maxPx){BitmapFactory.Options options=new BitmapFactory.Options();options.inJustDecodeBounds=true;BitmapFactory.decodeFile(path,options);if(options.outWidth<=0||options.outHeight<=0)return null;int sample=1;while(options.outWidth/sample>maxPx*2||options.outHeight/sample>maxPx*2)sample*=2;options.inJustDecodeBounds=false;options.inSampleSize=sample;options.inPreferredConfig=Bitmap.Config.ARGB_8888;return applyOrientation(path,BitmapFactory.decodeFile(path,options));}
     private static Bitmap applyOrientation(String path,Bitmap b){if(b==null)return null;try{int o=new ExifInterface(path).getAttributeInt(ExifInterface.TAG_ORIENTATION,1);Matrix m=new Matrix();switch(o){case 2:m.setScale(-1,1);break;case 3:m.setRotate(180);break;case 4:m.setScale(1,-1);break;case 5:m.setRotate(90);m.postScale(-1,1);break;case 6:m.setRotate(90);break;case 7:m.setRotate(-90);m.postScale(-1,1);break;case 8:m.setRotate(-90);break;default:return b;}return Bitmap.createBitmap(b,0,0,b.getWidth(),b.getHeight(),m,true);}catch(Exception ignored){return b;}}
