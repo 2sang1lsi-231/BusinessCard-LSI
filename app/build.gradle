@@ -10,8 +10,8 @@ android {
         applicationId 'com.lsi.businesscard'
         minSdk 23
         targetSdk 35
-        versionCode 11
-        versionName '2.4'
+        versionCode 12
+        versionName '2.5'
         testInstrumentationRunner 'com.lsi.businesscard.AppChecks'
     }
 
@@ -29,6 +29,9 @@ android {
 }
 
 dependencies {
+    implementation 'androidx.camera:camera-camera2:1.5.3'
+    implementation 'androidx.camera:camera-lifecycle:1.5.3'
+    implementation 'androidx.camera:camera-view:1.5.3'
     implementation 'androidx.exifinterface:exifinterface:1.4.2'
     // Bundled on-device Korean text recognizer: business-card OCR works without uploading card images to a server.
     implementation 'com.google.mlkit:text-recognition-korean:16.0.1'

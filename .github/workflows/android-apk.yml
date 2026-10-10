@@ -2,7 +2,7 @@ name: Build Android APK
 on:
   workflow_dispatch:
   push:
-    branches: [ build/v2.3-scan ]
+    branches: [ build/v2.5-camera-gallery ]
 permissions:
   contents: read
 jobs:
@@ -31,6 +31,11 @@ jobs:
           python -m pip install fonttools==4.55.3
           fonttools varLib.instancer app/src/main/assets/NotoSansKR-variable.ttf wght=400 --output app/src/main/assets/NotoSansKR.ttf
           rm app/src/main/assets/NotoSansKR-variable.ttf
+      - name: Check tilted card detector and false captures
+        run: |
+          mkdir detector-classes
+          javac -d detector-classes app/src/main/java/com/lsi/businesscard/CardDetector.java tools/CameraDetectorChecks.java
+          java -cp detector-classes CameraDetectorChecks
       - name: Build device checks
         run: gradle :app:assembleDebug :app:assembleAndroidTest --no-daemon --stacktrace
       - name: Enable emulator acceleration
@@ -43,15 +48,15 @@ jobs:
           arch: x86_64
           ram-size: 2048M
           disable-animations: true
-          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back emulated
           script: |
             adb shell settings put system screen_off_timeout 2147483647
             adb shell settings put global stay_on_while_plugged_in 3
             adb shell input keyevent KEYCODE_WAKEUP
             adb shell wm dismiss-keyguard
-            adb install app/build/outputs/apk/debug/app-debug.apk
+            adb install -g app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
-            timeout 180s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
+            timeout 240s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
             cat device-checks.txt
             adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots || true
             adb logcat -d > device-logcat.txt
@@ -97,10 +102,10 @@ jobs:
       - name: Align APK and collect verification tools
         run: |
           mkdir package
-          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v2.4-unsigned.apk
+          "$ANDROID_HOME/build-tools/35.0.0/zipalign" -f -p 4 app/build/outputs/apk/release/app-release-unsigned.apk package/BusinessCard_LSI_v2.5-unsigned.apk
           cp "$ANDROID_HOME/build-tools/35.0.0/lib/apksigner.jar" package/apksigner.jar
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v2.4-unsigned.apk > package/apk-info.txt
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging package/BusinessCard_LSI_v2.5-unsigned.apk > package/apk-info.txt
       - uses: actions/upload-artifact@v4
         with:
-          name: BusinessCard_LSI_v2.4_BUILD
+          name: BusinessCard_LSI_v2.5_BUILD
           path: package/

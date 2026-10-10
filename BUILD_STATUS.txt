@@ -1,5 +1,5 @@
-BusinessCard LSI v2.3
+BusinessCard LSI v2.5
 
-Changes: live document scanner edge detection/perspective correction, bundled Hanja OCR with Korean readings and retained originals, compact coloured menus.
-Verification: pending Android 26/35 CI and release build.
-Scanner UI is supplied by Google Play services and requires an initial module download; physical camera capture is not available in the CI emulator.
+Changes: app-owned CameraX scan UI, live card contour and automatic/manual capture, adjustable perspective crop, permanent gallery copies in Pictures/명함관리 LSI, gallery export of existing cards.
+Verification: pending Android 26/36 CI, release build and existing certificate verification.
+Physical Galaxy camera capture is not available in the build environment.
