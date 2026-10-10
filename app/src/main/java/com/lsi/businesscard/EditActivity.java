@@ -17,7 +17,7 @@ public class EditActivity extends Activity {
     private static final int REQ_FRONT_PICK=201,REQ_BACK_PICK=202,REQ_FRONT_CAMERA=203,REQ_BACK_CAMERA=204,REQ_OCR_PICK=205,REQ_OCR_CAMERA=206,REQ_CROP=207,REQ_AUTO_SCAN=208;
     private DbHelper db; private Contact c; private final Map<String,EditText> fields=new LinkedHashMap<>();
     private TextView frontStatus,backStatus; private ImageView frontPreview,backPreview; private boolean isNew;
-    private int scanFallbackRequest=REQ_OCR_CAMERA;private boolean scanPreparing=false;
+    private int scanGeneration=0;private int scanFallbackRequest=REQ_OCR_CAMERA;private boolean scanPreparing=false;
     private boolean scanNext=false,pendingOcr=false,pendingFront=true;private String cropInput="";
     private File pendingCameraFile; private String originalFront="",originalBack=""; private final Set<String> newlyCreatedImages=new HashSet<>();
 
@@ -64,9 +64,10 @@ public class EditActivity extends Activity {
     private void pickImage(int req){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT);i.addCategory(Intent.CATEGORY_OPENABLE);i.setType("image/*");startActivityForResult(i,req);}
 
     private void startAutoScan(boolean ocr,int fallback){
-        if(scanPreparing)return;scanPreparing=true;pendingOcr=ocr;pendingFront=fallback!=REQ_BACK_CAMERA&&fallback!=REQ_BACK_PICK;scanFallbackRequest=fallback;
+        if(scanPreparing)return;scanPreparing=true;final int generation=++scanGeneration;pendingOcr=ocr;pendingFront=fallback!=REQ_BACK_CAMERA&&fallback!=REQ_BACK_PICK;scanFallbackRequest=fallback;
         ProgressDialog dialog=ProgressDialog.show(this,"명함 외곽선 인식","스캐너를 준비합니다. 처음 사용 시 구성 요소를 다운로드할 수 있습니다…",true,false);
-        DocumentScan.launch(this,REQ_AUTO_SCAN,()->{scanPreparing=false;dialog.dismiss();},error->{scanPreparing=false;dialog.dismiss();new AlertDialog.Builder(this).setTitle("자동 스캐너 준비 실패").setMessage("현재 기기에서 자동 스캐너를 열 수 없습니다. 인터넷 연결과 Google Play 서비스를 확인하세요. 일반 촬영 또는 사진 선택 후 수동 자르기를 사용할 수 있습니다.").setNegativeButton("취소",null).setPositiveButton("일반 촬영 / 사진 선택",(d,w)->{if(isCameraReq(scanFallbackRequest))startCamera(scanFallbackRequest);else pickImage(scanFallbackRequest);}).show();});
+        dialog.setCancelable(true);dialog.setOnCancelListener(d->{if(generation==scanGeneration){scanPreparing=false;scanGeneration++;}});
+        DocumentScan.launch(this,REQ_AUTO_SCAN,()->{if(generation!=scanGeneration)return false;scanPreparing=false;dialog.dismiss();return true;},error->{scanPreparing=false;dialog.dismiss();new AlertDialog.Builder(this).setTitle("자동 스캐너 준비 실패").setMessage("현재 기기에서 자동 스캐너를 열 수 없습니다. 인터넷 연결과 Google Play 서비스를 확인하세요. 일반 촬영 또는 사진 선택 후 수동 자르기를 사용할 수 있습니다.").setNegativeButton("취소",null).setPositiveButton("일반 촬영 / 사진 선택",(d,w)->{if(isCameraReq(scanFallbackRequest))startCamera(scanFallbackRequest);else pickImage(scanFallbackRequest);}).show();});
     }
     void acceptScannedImage(Uri uri)throws Exception{
         String path=ImageUtil.copyUriToCards(this,uri,pendingFront?"scan_front":"scan_back");attachPhoto(path);if(pendingOcr)runOcr(path);
