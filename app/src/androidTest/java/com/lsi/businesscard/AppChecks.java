@@ -14,7 +14,7 @@ import java.util.*;
 public class AppChecks extends Instrumentation {
     private void check(boolean value,String message){if(!value)throw new AssertionError(message);}
     @Override public void onCreate(Bundle args){super.onCreate(args);start();}
-    @Override public void onStart(){Bundle result=new Bundle();try{runChecks();result.putString("stream","\nALL_CHECKS_PASSED\n");finish(Activity.RESULT_OK,result);}catch(Throwable e){StringWriter w=new StringWriter();e.printStackTrace(new PrintWriter(w));result.putString("stream","\nCHECKS_FAILED\n"+w);finish(Activity.RESULT_CANCELED,result);}}
+    @Override public void onStart(){Bundle result=new Bundle();try{getUiAutomation();runChecks();result.putString("stream","\nALL_CHECKS_PASSED\n");finish(Activity.RESULT_OK,result);}catch(Throwable e){StringWriter w=new StringWriter();e.printStackTrace(new PrintWriter(w));result.putString("stream","\nCHECKS_FAILED\n"+w);finish(Activity.RESULT_CANCELED,result);}}
     private Contact card(String name,String company,String phone){Contact c=new Contact();c.put("name",name);c.put("company1",company);c.put("mobile1",phone);c.put("created_at","2026-10-08 09:00:00");c.put("updated_at","2026-10-08 09:00:00");return c;}
     private void stage(String name){Bundle b=new Bundle();b.putString("stream","\nCHECK_STAGE: "+name+"\n");sendStatus(0,b);}
     private void runChecks()throws Exception{

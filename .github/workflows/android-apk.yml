@@ -45,12 +45,19 @@ jobs:
           disable-animations: true
           emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -camera-back none
           script: |
+            adb shell settings put system screen_off_timeout 2147483647
+            adb shell settings put global stay_on_while_plugged_in 3
+            adb shell input keyevent KEYCODE_WAKEUP
+            adb shell wm dismiss-keyguard
             adb install app/build/outputs/apk/debug/app-debug.apk
             adb install app/build/outputs/apk/androidTest/debug/app-debug-androidTest.apk
             timeout 180s adb shell am instrument -w com.lsi.businesscard.test/com.lsi.businesscard.AppChecks > device-checks.txt || true
             cat device-checks.txt
             adb pull /sdcard/Android/data/com.lsi.businesscard/files screenshots || true
-            adb logcat -d -t 300 > device-logcat.txt
+            adb logcat -d > device-logcat.txt
+            adb shell dumpsys window > device-window.txt
+            adb shell dumpsys power > device-power.txt
+            adb shell dumpsys activity activities > device-activities.txt
             grep -q ALL_CHECKS_PASSED device-checks.txt
       - uses: actions/upload-artifact@v4
         if: always()
@@ -59,6 +66,9 @@ jobs:
           path: |
             device-checks.txt
             device-logcat.txt
+            device-window.txt
+            device-power.txt
+            device-activities.txt
             screenshots/
   build:
     needs: checks
