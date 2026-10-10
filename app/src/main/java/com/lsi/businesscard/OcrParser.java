@@ -37,10 +37,11 @@ public final class OcrParser {
         }
         for(String line:lines){if(line.equals(company)||line.equals(name)||contact(line)||addressLine(line)||slogan(line))continue;String d=line;for(String t:TITLES)d=d.replace(t,"");d=d.replaceAll("^[ /·]+|[ /·]+$","").trim();if(!d.isEmpty()&&departmentWord(d)&&!placeWord(d)){department=d;break;}}
         if(company.isEmpty())for(String line:lines){if(!line.equals(name)&&!line.equals(department)&&!contact(line)&&!addressLine(line)&&!placeWord(line)&&!slogan(line)&&!any(line,TITLES)&&line.length()>=2&&line.length()<=30){company=line;break;}}
-        put(out,"name",name);put(out,"company1",company);put(out,"department1",department);put(out,"title1",title);put(out,"address1",address);
+        company=cleanLogoCompany(company,normalized);put(out,"name",name);put(out,"company1",company);put(out,"department1",department);put(out,"title1",title);put(out,"address1",address);
         if(!normalized.trim().isEmpty())out.put("note3","[명함 OCR 원문]\n"+raw.trim());
         out.put("_review",name.isEmpty()?"이름을 찾지 못했습니다. 명함 사진에서 확인해 주세요.":"이름·회사·직위를 명함 사진과 비교해 주세요.");return out;
     }
+    public static String cleanLogoCompany(String company,String evidence){String compact=company.replaceAll("\\s+","");if(compact.equals("대구협은행")&&Pattern.compile("(?i)(?:@|www\\.)dgb\\.co\\.kr").matcher(evidence).find())return "대구은행";return company;}
     public static String summary(Map<String,String> m){StringBuilder b=new StringBuilder();String[] keys={"name","company1","department1","title1","mobile1","phone1","fax1","email1","address1","website"},labels={"이름","회사","부서","직위","휴대폰","전화","팩스","이메일","주소","웹사이트"};for(int i=0;i<keys.length;i++)if(m.containsKey(keys[i])){if(b.length()>0)b.append('\n');b.append(labels[i]).append(" : ").append(m.get(keys[i]));}return b.length()==0?"인식된 항목이 없습니다.":b.toString();}
     private static List<String> clean(String s){ArrayList<String> lines=new ArrayList<>();Set<String> seen=new HashSet<>();for(String l:s.split("[\\r\\n]+")){l=l.trim().replaceAll("\\s+"," ");if(!l.isEmpty()&&seen.add(l.toLowerCase(Locale.ROOT)))lines.add(l);}return lines;}
     private static List<String> matches(Pattern p,String s){List<String> r=new ArrayList<>();Matcher m=p.matcher(s);while(m.find())if(!r.contains(m.group()))r.add(m.group());return r;}

@@ -15,7 +15,7 @@ import java.util.Set;
 
 public class DbHelper extends SQLiteOpenHelper {
     public static final String DB_NAME = "business_cards.db";
-    public static final int DB_VERSION = 3;
+    public static final int DB_VERSION = 4;
     public static final String[] TEXT_COLUMNS = {
             "created_at","updated_at","name","industry","location_text",
             "company1","department1","title1","company2","department2","title2","company3","department3","title3",
@@ -46,6 +46,11 @@ public class DbHelper extends SQLiteOpenHelper {
             catch (Exception ignored) { }
         }
         if (oldVersion < 3) for (String col : new String[]{"met_at","met_place","meeting_notes"}) db.execSQL("ALTER TABLE contacts ADD COLUMN " + col + " TEXT NOT NULL DEFAULT ''");
+        if(oldVersion<4)repairLogoCompany(db);
+    }
+
+    private static void repairLogoCompany(SQLiteDatabase db){
+        db.execSQL("UPDATE contacts SET note3=CASE WHEN instr(note3,'[회사명 보정 전]')>0 THEN note3 ELSE note3 || char(10) || '[회사명 보정 전] ' || company1 END, company1='대구은행' WHERE replace(company1,' ','')='대구협은행' AND (lower(website) LIKE '%dgb.co.kr%' OR lower(email1) LIKE '%@dgb.co.kr' OR lower(email2) LIKE '%@dgb.co.kr' OR lower(email3) LIKE '%@dgb.co.kr')");
     }
 
     public long insert(Contact x) { return getWritableDatabase().insertOrThrow("contacts", null, x.toContentValues()); }
@@ -101,17 +106,18 @@ public class DbHelper extends SQLiteOpenHelper {
     public static final String[] SORT_LABELS = {"입력순 · 먼저 입력한 순서", "입력순 · 최근 입력한 순서", "이름 · 가나다순", "이름 · 역순", "회사 · 가나다순", "회사 · 역순", "최근 수정한 순서", "만난 날짜 · 최근순", "만난 날짜 · 오래된 순"};
     public static String orderFor(int sort) {
         switch(sort) {
-            case 1: return "_id DESC";
-            case 2: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, name COLLATE LOCALIZED ASC, _id ASC";
-            case 3: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, name COLLATE LOCALIZED DESC, _id ASC";
-            case 4: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED ASC, _id ASC";
-            case 5: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, company1 COLLATE LOCALIZED DESC, _id ASC";
-            case 6: return "CASE WHEN updated_at='' THEN 1 ELSE 0 END, updated_at DESC, _id DESC";
-            case 7: return "CASE WHEN met_at='' THEN 1 ELSE 0 END, met_at DESC, _id DESC";
-            case 8: return "CASE WHEN met_at='' THEN 1 ELSE 0 END, met_at ASC, _id DESC";
-            default: return "_id ASC";
+            case 1: return dateOrder("created_at",false);
+            case 2: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, trim(name) COLLATE LOCALIZED ASC, _id ASC";
+            case 3: return "CASE WHEN trim(name)='' THEN 1 ELSE 0 END, trim(name) COLLATE LOCALIZED DESC, _id ASC";
+            case 4: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, trim(company1) COLLATE LOCALIZED ASC, _id ASC";
+            case 5: return "CASE WHEN trim(company1)='' THEN 1 ELSE 0 END, trim(company1) COLLATE LOCALIZED DESC, _id ASC";
+            case 6: return dateOrder("updated_at",false);
+            case 7: return dateOrder("met_at",false);
+            case 8: return dateOrder("met_at",true);
+            default: return dateOrder("created_at",true);
         }
     }
+    private static String dateOrder(String column,boolean ascending){String value="julianday(replace(replace(trim("+column+"),'/','-'),'T',' '))";return "CASE WHEN "+value+" IS NULL THEN 1 ELSE 0 END, "+value+(ascending?" ASC":" DESC")+", _id "+(ascending?"ASC":"DESC");}
     public List<Contact> search(String q, boolean favoritesOnly, String group) { return search(q, favoritesOnly, group, 1); }
     public List<Contact> search(String q, boolean favoritesOnly) { return search(q, favoritesOnly, ""); }
 
