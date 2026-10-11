@@ -7,8 +7,8 @@ public final class OcrParser {
     private static final Pattern URL=Pattern.compile("(?i)(?:https?://)?(?:www\\.)?[a-z0-9][a-z0-9.-]+\\.(?:co\\.kr|or\\.kr|go\\.kr|com|net|org|kr|io|ai|biz)(?:/[^\\s]*)?");
     private static final Pattern PHONE=Pattern.compile("(?<![\\dA-Za-z])(?:\\+82[ .-]*)?\\(?0?\\d{1,3}\\)?[ .-]*\\d{3,4}[ .-]+\\d{4}(?!\\d)|(?<!\\d)(?:0\\d{8,10})(?!\\d)");
     private static final String[] TITLES={"대표변호사","대표이사","부회장","부사장","부팀장","부지점장","부장대우","본부장","센터장","지점장","대표","회장","사장","전무","상무","이사","실장","팀장","부장","차장","과장","대리","주임","사원","교수","박사","원장","국장","소장","변호사","회계사","세무사"};
-    private static final String[] COMPANIES={"주식회사","(주)","㈜","회사","법인","협회","재단","연구원","연구소","병원","의원","대학교","학교","은행","센터","시의회","구의회","부동산","corporation","corp","inc","ltd","company"};
-    private static final Pattern LABEL=Pattern.compile("(?i)(?:e-?mail|email|fax|facsimile|tel(?:ephone)?|mobile|h\\.?p\\.?|cell|phone|휴대폰|휴대전화|팩스|전화)\\s*[:.：]?\\s*");
+    private static final String[] COMPANIES={"주식회사","(주)","㈜","회사","법인","협회","재단","연구원","연구소","병원","의원","대학교","학교","은행","센터","시의회","구의회","부동산","corporation","corp","inc","ltd","company","컨설팅","건설","환경","산업","공업","상사","엔지니어링"};
+    private static final Pattern LABEL=Pattern.compile("(?i)(?:e-?mail|email|fax|facsimile|tel(?:ephone)?|mobile|h\\.?p\\.?|cell|phone|휴대폰|휴대전화|팩스|전화|b\\.?\\s*p\\.?|pager|호출기|삐삐)\\s*[:.：]?\\s*");
     private static final String SURNAMES="김이박최정강조윤장임한오서신권황안송전홍유고문양손배백허남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용";
     public static Map<String,String> parse(String raw){
         LinkedHashMap<String,String> out=new LinkedHashMap<>();String normalized=raw==null?"":raw.replaceAll("[‐‑‒–—−]","-").replace('：',':');normalized=normalized.replaceAll("(?i)(www\\.[^\\s]+)\\s*\\n\\s*(\\.[a-z]{2,3})","$1$2").replaceAll("\\s*@\\s*","@");
@@ -17,17 +17,17 @@ public final class OcrParser {
         int ei=1;for(String v:matches(EMAIL,joined))if(ei<=3)out.put("email"+ei++,v);
         for(String u:matches(URL,EMAIL.matcher(joined).replaceAll(""))){out.put("website",u);break;}
         Set<String> seen=new HashSet<>();int mi=1,pi=1,fi=1;String area="";
-        for(String line:lines){Matcher m=PHONE.matcher(line);String previousLabel="";int previousEnd=0;while(m.find()){
-            String before=line.substring(previousEnd,m.start());Matcher labels=LABEL.matcher(before);String kind=previousLabel;while(labels.find())kind=labels.group().toLowerCase(Locale.ROOT);previousLabel=kind;previousEnd=m.end();String d=m.group().replaceAll("[^0-9]","");if(d.startsWith("82")&&d.length()>=11)d="0"+d.substring(2);if(d.length()<9||d.length()>11||!d.startsWith("0")||!seen.add(d))continue;
-            boolean mobile=d.matches("01[016789]\\d{7,8}");String prefix=d.startsWith("02")?"02":d.substring(0,3);if(!mobile)area=prefix;
-            String p=PhoneDisplay.format(d);if(kind.contains("fax")||kind.contains("팩스")||kind.contains("facsimile")){if(fi<=3)out.put("fax"+fi++,p);}else if(mobile){if(mi<=3)out.put("mobile"+mi++,p);}else if(pi<=3)out.put("phone"+pi++,p);
+        for(String line:lines){Matcher m=Pattern.compile(PHONE.pattern()+"|(?<![\\dA-Za-z])\\d{3,4}[ .-]+\\d{4}(?!\\d)").matcher(line);String previousLabel="";int previousEnd=0;while(m.find()){
+            String before=line.substring(previousEnd,m.start());Matcher labels=LABEL.matcher(before);String kind=previousLabel;while(labels.find())kind=labels.group().toLowerCase(Locale.ROOT);previousLabel=kind;previousEnd=m.end();String d=m.group().replaceAll("[^0-9]","");if(d.startsWith("82")&&d.length()>=11)d="0"+d.substring(2);if(d.length()>11)continue;boolean local=d.matches("[2-9]\\d{6,7}");if(local){if(kind.isEmpty())continue;if(!area.isEmpty())d=area+d;}else if(d.length()<9||!d.startsWith("0"))continue;if(!seen.add(d))continue;
+            boolean mobile=d.matches("01[016789]\\d{7,8}");String prefix=d.startsWith("02")?"02":d.substring(0,3);if(!mobile&&!local&&!d.startsWith("015"))area=prefix;
+            String p=local&&area.isEmpty()?d.substring(0,d.length()-4)+"-"+d.substring(d.length()-4):PhoneDisplay.format(d);if(kind.contains("pager")||kind.contains("호출기")||kind.contains("삐삐")||kind.replaceAll("[^a-z]","").equals("bp")||d.startsWith("015")){out.put("note2",(out.containsKey("note2")?out.get("note2")+"\n":"")+"호출기: "+p);}else if(kind.contains("fax")||kind.contains("팩스")||kind.contains("facsimile")){if(fi<=3)out.put("fax"+fi++,p);}else if(mobile){if(mi<=3)out.put("mobile"+mi++,p);}else if(pi<=3)out.put("phone"+pi++,p);
         }
         // Some cards print the area code only once: TEL (02) 1234-5678 / FAX 1234-5679.
         if(!area.isEmpty()){Matcher local=Pattern.compile("(?i)(?:FAX|팩스)\\s*[:.]?\\s*(\\d{3,4})[ -]+(\\d{4})(?!\\d)").matcher(line);while(local.find()){String d=area+local.group(1)+local.group(2);if(seen.add(d)&&fi<=3)out.put("fax"+fi++,PhoneDisplay.format(d));}}
         }
         String company="",title="",department="",address="",name="";int nameScore=-1;
         for(int i=0;i<lines.size();i++){String line=lines.get(i);if(addressLine(line)){if(address.isEmpty())address=strip(line,"주소|address");else if(i>0&&addressLine(lines.get(i-1)))address+=" "+line;continue;}if(contact(line)||slogan(line))continue;
-            if(company.isEmpty()&&any(line,COMPANIES)&&!ContactReview.suspicious(line))company=line;
+            if(company.isEmpty()&&any(line.replaceAll("\\s+",""),COMPANIES)&&!ContactReview.suspicious(line))company=line.matches("[가-힣](?:\\s+[가-힣]){2,}")?line.replaceAll("\\s+",""):line;
             if(title.isEmpty()){for(String t:TITLES)if(line.contains(t)){title=t;break;}}
         }
         for(String line:lines){if(contact(line)||addressLine(line)||placeWord(line)||slogan(line)||line.equals(company)||any(line,COMPANIES))continue;
@@ -41,6 +41,7 @@ public final class OcrParser {
         if(!normalized.trim().isEmpty())out.put("note3","[명함 OCR 원문]\n"+raw.trim());
         out.put("_review",name.isEmpty()?"이름을 찾지 못했습니다. 명함 사진에서 확인해 주세요.":"이름·회사·직위를 명함 사진과 비교해 주세요.");return out;
     }
+    static boolean companyCandidate(String text){String reading=HanjaReading.convert(text);return any(reading.replaceAll("\\s+",""),COMPANIES)&&!contact(reading)&&!addressLine(reading)&&!slogan(reading)&&!ContactReview.suspicious(reading);}
     public static String cleanLogoCompany(String company,String evidence){String compact=company.replaceAll("\\s+","");if(compact.equals("대구협은행")&&Pattern.compile("(?i)(?:@|www\\.)dgb\\.co\\.kr(?=$|[^\\w.-])").matcher(evidence).find())return "대구은행";return company;}
     public static String summary(Map<String,String> m){StringBuilder b=new StringBuilder();String[] keys={"name","company1","department1","title1","mobile1","phone1","fax1","email1","address1","website"},labels={"이름","회사","부서","직위","휴대폰","전화","팩스","이메일","주소","웹사이트"};for(int i=0;i<keys.length;i++)if(m.containsKey(keys[i])){if(b.length()>0)b.append('\n');b.append(labels[i]).append(" : ").append(m.get(keys[i]));}return b.length()==0?"인식된 항목이 없습니다.":b.toString();}
     private static List<String> clean(String s){ArrayList<String> lines=new ArrayList<>();Set<String> seen=new HashSet<>();for(String l:s.split("[\\r\\n]+")){l=l.trim().replaceAll("\\s+"," ");if(!l.isEmpty()&&seen.add(l.toLowerCase(Locale.ROOT)))lines.add(l);}return lines;}
