@@ -23,7 +23,7 @@ public final class HanjaReading {
         if(readings==null)return text;
         // Android ICU and desktop Java differ in accepted Unicode regex names.
         // Walk code points directly, including supplementary Han and compatibility characters.
-        text=text.replace("株式會社","주식회사").replace("株式会社","주식회사").replace("銀行","은행").replace("金融","금융").replace("行長","행장").replace("部長","부장").replace("課長","과장").replace("電話","전화").replace("行動","행동").replace("行政","행정");
+        text=text.replace("代表理事","대표이사").replace("代表理事","대표이사").replace("株式會社","주식회사").replace("株式会社","주식회사").replace("銀行","은행").replace("金融","금융").replace("行長","행장").replace("部長","부장").replace("課長","과장").replace("電話","전화").replace("行動","행동").replace("行政","행정");
         StringBuilder out=new StringBuilder();int offset=0;
         while(offset<text.length()){
             int cp=text.codePointAt(offset);
