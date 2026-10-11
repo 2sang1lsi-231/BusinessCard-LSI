@@ -30,7 +30,7 @@ public final class Ui {
         setContentView(activity,content,false);
     }
     public static void setContentView(Activity activity, View content, boolean dark) {
-        final int background = dark ? Color.rgb(21,25,31) : Color.rgb(245,246,248);
+        final int background = dark ? Color.rgb(21,25,31) : AppTheme.surface(activity);
         activity.getWindow().setStatusBarColor(background);
         activity.getWindow().setNavigationBarColor(background);
         View decor = activity.getWindow().getDecorView();
@@ -70,17 +70,17 @@ public final class Ui {
         v.setTypeface(gothic(c), bold?Typeface.BOLD:Typeface.NORMAL); v.setPadding(0, dp(c,2), 0, dp(c,2)); return v;
     }
     public static TextView label(Context c,String s){TextView v=text(c,s,13,true);v.setTextColor(Color.rgb(85,92,101));v.setPadding(0,dp(c,6),0,0);return v;}
-    public static Button button(Context c, String s) { Button b = new Button(c); b.setText(s);b.setIncludeFontPadding(false); b.setAllCaps(false); b.setTypeface(gothic(c), Typeface.NORMAL); b.setTextSize(14*textScale(c));b.setMinHeight(dp(c,48));b.setMinimumHeight(dp(c,48));b.setMinWidth(dp(c,48));b.setMinimumWidth(dp(c,48));b.setPadding(dp(c,10),dp(c,6),dp(c,10),dp(c,6));b.setElevation(0);b.setStateListAnimator(null);styleButton(b,false);return b; }
-    public static void styleButton(Button b,boolean primary){Context c=b.getContext();GradientDrawable shape=rounded(primary?Color.rgb(25,118,210):Color.rgb(235,244,252),10,c);shape.setStroke(dp(c,1),primary?Color.rgb(25,118,210):Color.rgb(211,229,245));b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(Color.rgb(197,222,246)),shape,null));b.setTextColor(primary?Color.WHITE:Color.rgb(30,91,147));}
+    public static Button button(Context c, String s) { Button b = new Button(c); b.setText(s);b.setIncludeFontPadding(false); b.setAllCaps(false); b.setTypeface(gothic(c), Typeface.NORMAL); b.setTextSize(14*textScale(c));b.setMinHeight(dp(c,44));b.setMinimumHeight(dp(c,44));b.setMinWidth(dp(c,48));b.setMinimumWidth(dp(c,48));b.setPadding(dp(c,10),dp(c,2),dp(c,10),dp(c,2));b.setElevation(0);b.setStateListAnimator(null);styleButton(b,false);return b; }
+    public static void styleButton(Button b,boolean primary){Context c=b.getContext();GradientDrawable shape=rounded(primary?AppTheme.accent(c):AppTheme.button(c),10,c);shape.setStroke(dp(c,1),primary?AppTheme.accent(c):AppTheme.border(c));b.setBackground(new android.graphics.drawable.RippleDrawable(android.content.res.ColorStateList.valueOf(AppTheme.border(c)),shape,null));b.setTextColor(primary?Color.WHITE:AppTheme.accent(c));}
     public static Button primary(Context c,String s){Button b=button(c,s);styleButton(b,true);return b;}
     public static void compactText(TextView v,int lines){v.setPadding(0,0,0,0);v.setMaxLines(lines);v.setEllipsize(android.text.TextUtils.TruncateAt.END);}
     public static View divider(Context c){View v=new View(c);v.setBackgroundColor(Color.rgb(232,236,241));v.setLayoutParams(new LinearLayout.LayoutParams(-1,dp(c,1)));return v;}
     public static EditText edit(Context c, String hint) { EditText e = new EditText(c);e.setIncludeFontPadding(false); e.setHint(hint); e.setTypeface(gothic(c), Typeface.NORMAL); e.setTextSize(16*textScale(c)); e.setSingleLine(true); e.setPadding(dp(c,4),dp(c,7),dp(c,4),dp(c,7)); return e; }
-    public static TextView section(Context c,String s){TextView t=text(c,s,18,true);t.setTextColor(Color.rgb(25,118,210));t.setPadding(0,dp(c,10),0,dp(c,3));return t;}
+    public static TextView section(Context c,String s){TextView t=text(c,s,18,true);t.setTextColor(AppTheme.accent(c));t.setPadding(0,dp(c,10),0,dp(c,3));return t;}
     public static LinearLayout.LayoutParams mp(Context c) { return new LinearLayout.LayoutParams(-1,-2); }
     public static LinearLayout.LayoutParams weight(int w) { return new LinearLayout.LayoutParams(0,-2,w); }
     public static View gap(Context c, int h) { View v = new View(c); v.setLayoutParams(new LinearLayout.LayoutParams(1,dp(c,h))); return v; }
     public static GradientDrawable rounded(int color,float radiusDp,Context c){GradientDrawable g=new GradientDrawable();g.setColor(color);g.setCornerRadius(dp(c,(int)radiusDp));return g;}
-    public static TextView badge(Context c,String s){TextView v=text(c,s,12,true);v.setGravity(Gravity.CENTER);v.setPadding(dp(c,8),dp(c,4),dp(c,8),dp(c,4));v.setBackground(rounded(Color.rgb(232,240,254),10,c));v.setTextColor(Color.rgb(25,103,210));return v;}
+    public static TextView badge(Context c,String s){TextView v=text(c,s,12,true);v.setGravity(Gravity.CENTER);v.setPadding(dp(c,8),dp(c,4),dp(c,8),dp(c,4));v.setBackground(rounded(AppTheme.button(c),10,c));v.setTextColor(AppTheme.accent(c));return v;}
     private Ui() {}
 }

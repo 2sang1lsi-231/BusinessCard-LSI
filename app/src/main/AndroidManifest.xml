@@ -18,6 +18,7 @@
             android:exported="false"
             android:grantUriPermissions="true" />
 
+        <activity android:name=".ImportActivity" android:exported="false" />
         <activity android:name=".ScanActivity" android:exported="false" android:screenOrientation="portrait" />
         <activity android:name=".PhotoEditActivity" android:exported="false" />
         <activity android:name=".EditActivity" android:exported="false" />
