@@ -17,27 +17,28 @@ public final class CardEdges {
         if(!load())return new Detection(null,0);float factor=Math.min(1,720f/Math.max(bitmap.getWidth(),bitmap.getHeight()));
         Bitmap small=Bitmap.createScaledBitmap(bitmap,Math.max(1,Math.round(bitmap.getWidth()*factor)),Math.max(1,Math.round(bitmap.getHeight()*factor)),true);
         Mat rgba=new Mat(),gray=new Mat(),blur=new Mat(),edges=new Mat(),hierarchy=new Mat(),lap=new Mat(),channel=new Mat(),mask=new Mat();MatOfDouble mean=new MatOfDouble(),std=new MatOfDouble();
-        Mat kernel=Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new org.opencv.core.Size(5,5));byte[] edgePixels=new byte[small.getWidth()*small.getHeight()];List<MatOfPoint> contours=new ArrayList<>();Candidate best=new Candidate();
+        Mat kernel=Imgproc.getStructuringElement(Imgproc.MORPH_RECT,new org.opencv.core.Size(5,5));byte[] edgePixels=new byte[small.getWidth()*small.getHeight()],colorPixels=new byte[small.getWidth()*small.getHeight()*4];List<MatOfPoint> contours=new ArrayList<>();Candidate best=new Candidate();
         try{
-            Utils.bitmapToMat(small,rgba);Imgproc.cvtColor(rgba,gray,Imgproc.COLOR_RGBA2GRAY);Imgproc.Laplacian(gray,lap,CvType.CV_64F);Core.meanStdDev(lap,mean,std);double sharpness=Math.pow(std.toArray()[0],2);
+            Utils.bitmapToMat(small,rgba);rgba.get(0,0,colorPixels);Imgproc.cvtColor(rgba,gray,Imgproc.COLOR_RGBA2GRAY);Imgproc.Laplacian(gray,lap,CvType.CV_64F);Core.meanStdDev(lap,mean,std);double sharpness=Math.pow(std.toArray()[0],2);
             Imgproc.GaussianBlur(gray,blur,new org.opencv.core.Size(5,5),0);
             // Strong edges, faint edges, and local contrast each recover different backgrounds.
-            for(int pass=0;pass<6;pass++){
+            for(int pass=0;pass<14;pass++){
                 if(pass<2)Imgproc.Canny(blur,edges,pass==0?45:10,pass==0?135:35);
                 else if(pass==2)Imgproc.adaptiveThreshold(blur,edges,255,Imgproc.ADAPTIVE_THRESH_GAUSSIAN_C,Imgproc.THRESH_BINARY_INV,31,5);
-                else{Core.extractChannel(rgba,channel,pass-3);Imgproc.GaussianBlur(channel,channel,new org.opencv.core.Size(5,5),0);Imgproc.Canny(channel,edges,10,35);}
+                else if(pass<6){Core.extractChannel(rgba,channel,pass-3);Imgproc.GaussianBlur(channel,channel,new org.opencv.core.Size(5,5),0);Imgproc.Canny(channel,edges,10,35);}
+                else{int component=(pass-6)%4;if(component==0)blur.copyTo(channel);else{Core.extractChannel(rgba,channel,component-1);Imgproc.GaussianBlur(channel,channel,new org.opencv.core.Size(5,5),0);}double level=Imgproc.threshold(channel,edges,0,255,Imgproc.THRESH_BINARY|Imgproc.THRESH_OTSU);if(pass>=10)Imgproc.threshold(channel,edges,level+(255-level)*.35,255,Imgproc.THRESH_BINARY);}
                 Imgproc.morphologyEx(edges,edges,Imgproc.MORPH_CLOSE,kernel);
                 edges.get(0,0,edgePixels);Imgproc.findContours(edges,contours,hierarchy,Imgproc.RETR_LIST,Imgproc.CHAIN_APPROX_SIMPLE);
-                for(MatOfPoint contour:contours)consider(contour,gray.cols(),gray.rows(),edgePixels,best);
+                for(MatOfPoint contour:contours)consider(contour,gray.cols(),gray.rows(),edgePixels,colorPixels,best);
                 for(MatOfPoint contour:contours)contour.release();contours.clear();
             }
             // Measure text/detail on the card, rather than the desk/background.
-            if(best.corners!=null){mask=Mat.zeros(gray.size(),CvType.CV_8UC1);Point[] points=new Point[4];for(int i=0;i<4;i++)points[i]=new Point(best.corners[2*i]*gray.cols(),best.corners[2*i+1]*gray.rows());MatOfPoint polygon=new MatOfPoint(points);Imgproc.fillConvexPoly(mask,polygon,new Scalar(255));polygon.release();Imgproc.erode(mask,mask,kernel);Core.meanStdDev(lap,mean,std,mask);sharpness=Math.pow(std.toArray()[0],2);}
+            if(best.corners!=null){mask.create(gray.size(),CvType.CV_8UC1);mask.setTo(new Scalar(0));Point[] points=new Point[4];for(int i=0;i<4;i++)points[i]=new Point(best.corners[2*i]*gray.cols(),best.corners[2*i+1]*gray.rows());MatOfPoint polygon=new MatOfPoint(points);Imgproc.fillConvexPoly(mask,polygon,new Scalar(255));polygon.release();Imgproc.erode(mask,mask,kernel);Core.meanStdDev(lap,mean,std,mask);sharpness=Math.pow(std.toArray()[0],2);}
             return new Detection(best.corners,sharpness);
         }finally{for(Mat m:contours)m.release();for(Mat m:new Mat[]{rgba,gray,blur,edges,hierarchy,lap,mean,std,kernel,channel,mask})m.release();if(small!=bitmap)small.recycle();}
     }
     private static final class Candidate{float[] corners;double score;}
-    private static void consider(MatOfPoint contour,int width,int height,byte[] edgeImage,Candidate best){
+    private static void consider(MatOfPoint contour,int width,int height,byte[] edgeImage,byte[] colorImage,Candidate best){
         double area=Imgproc.contourArea(contour)/(width*(double)height);if(area<.06||area>.94)return;
         MatOfPoint2f curve=new MatOfPoint2f(contour.toArray()),approx=new MatOfPoint2f();
         try{double perimeter=Imgproc.arcLength(curve,true);for(double tolerance:new double[]{.018,.028,.04}){
@@ -49,12 +50,15 @@ public final class CardEdges {
             double w=(distance(q,0,1,width,height)+distance(q,3,2,width,height))/2,h=(distance(q,0,3,width,height)+distance(q,1,2,width,height))/2;
             double aspect=Math.max(w,h)/Math.min(w,h);if(aspect<1.12||aspect>2.6)continue;
             double worstAngle=0;for(int i=0;i<4;i++){int prev=(i+3)%4,next=(i+1)%4;double ax=(q[2*prev]-q[2*i])*width,ay=(q[2*prev+1]-q[2*i+1])*height,bx=(q[2*next]-q[2*i])*width,by=(q[2*next+1]-q[2*i+1])*height;worstAngle=Math.max(worstAngle,Math.abs(ax*bx+ay*by)/Math.max(1,Math.hypot(ax,ay)*Math.hypot(bx,by)));}if(worstAngle>.65)continue;
-            double support=edgeSupport(q,width,height,edgeImage);if(support<.32)continue;
-            double centered=1-Math.min(.85,Math.hypot(cx/width-.5,cy/height-.5)*1.8);double aspectFit=Math.exp(-Math.abs(Math.log(aspect/1.62))*2.8);double score=Math.sqrt(Math.min(area,.65))*centered*centered*aspectFit*(1-.3*worstAngle)*support;if(area>.75)score*=.7;
+            double support=edgeSupport(q,width,height,edgeImage);if(support<.32)continue;double contrast=boundaryContrast(q,width,height,colorImage);if(contrast<5)continue;
+            double centered=1-Math.min(.85,Math.hypot(cx/width-.5,cy/height-.5)*1.8);double aspectFit=Math.exp(-Math.abs(Math.log(aspect/1.62))*2.8);double score=Math.sqrt(Math.min(area,.65))*centered*centered*aspectFit*(1-.3*worstAngle)*support*Math.min(1,contrast/100);if(area>.75)score*=.7;
             if(score>best.score){best.score=score;best.corners=q;}
         }}finally{curve.release();approx.release();}
     }
     private static double edgeSupport(float[] q,int width,int height,byte[] image){double total=0;for(int side=0;side<4;side++){int next=(side+1)%4,hits=0;for(int i=1;i<40;i++){double t=i/40.0;int x=(int)Math.round((q[2*side]*(1-t)+q[2*next]*t)*width),y=(int)Math.round((q[2*side+1]*(1-t)+q[2*next+1]*t)*height);boolean hit=false;for(int dy=-3;dy<=3&&!hit;dy++)for(int dx=-3;dx<=3;dx++){int px=x+dx,py=y+dy;if(px>=0&&px<width&&py>=0&&py<height&&(image[py*width+px]&255)>0){hit=true;break;}}if(hit)hits++;}if(hits<10)return 0;total+=hits/39.0;}return total/4;}
+    // A textured desk can make a closed contour too. Require a coherent color
+    // step across EACH side on the original image, not on the threshold mask.
+    private static double boundaryContrast(float[] q,int width,int height,byte[] rgba){double weakest=Double.MAX_VALUE;for(int side=0;side<4;side++){int next=(side+1)%4;double ax=q[side*2]*width,ay=q[side*2+1]*height,bx=q[next*2]*width,by=q[next*2+1]*height,dx=bx-ax,dy=by-ay,len=Math.hypot(dx,dy),nx=-dy/len,ny=dx/len,best=0;for(int shift:new int[]{-2,0,2}){double[][] deltas=new double[25][3];double[] average=new double[3];int count=0;for(int sample=0;sample<25;sample++){double t=.1+.8*sample/24,px=ax*(1-t)+bx*t+nx*shift,py=ay*(1-t)+by*t+ny*shift;int ix=(int)Math.round(px+nx*5),iy=(int)Math.round(py+ny*5),ox=(int)Math.round(px-nx*5),oy=(int)Math.round(py-ny*5);if(ix<0||iy<0||ox<0||oy<0||ix>=width||ox>=width||iy>=height||oy>=height)continue;for(int ch=0;ch<3;ch++){double delta=(rgba[(iy*width+ix)*4+ch]&255)-(rgba[(oy*width+ox)*4+ch]&255);deltas[count][ch]=delta;average[ch]+=delta;}count++;}if(count<20)continue;double magnitude=0;for(int ch=0;ch<3;ch++){average[ch]/=count;magnitude+=average[ch]*average[ch];}int coherent=0;for(int sample=0;sample<count;sample++){double dot=0;for(int ch=0;ch<3;ch++)dot+=deltas[sample][ch]*average[ch];if(dot>Math.max(9,magnitude*.2))coherent++;}if(coherent>=count*.6)best=Math.max(best,Math.sqrt(magnitude/3));}weakest=Math.min(weakest,best);}return weakest;}
     public static boolean valid(float[] q){if(q==null||q.length!=8)return false;double sign=0,area=0;for(int i=0;i<4;i++){float x=q[2*i],y=q[2*i+1];if(x<0||x>1||y<0||y>1)return false;int j=(i+1)%4,k=(i+2)%4;double cross=(q[2*j]-x)*(q[2*k+1]-q[2*j+1])-(q[2*j+1]-y)*(q[2*k]-q[2*j]);if(Math.abs(cross)<.003)return false;if(i==0)sign=cross;else if(sign*cross<=0)return false;area+=x*q[2*j+1]-y*q[2*j];}return Math.abs(area)>.035;}
     public static float[] defaultCorners(){return new float[]{.03f,.03f,.97f,.03f,.97f,.97f,.03f,.97f};}
     private static double distance(float[] q,int a,int b,int w,int h){return Math.hypot((q[2*a]-q[2*b])*w,(q[2*a+1]-q[2*b+1])*h);}
