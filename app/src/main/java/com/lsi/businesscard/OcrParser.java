@@ -7,7 +7,7 @@ public final class OcrParser {
     private static final Pattern URL=Pattern.compile("(?i)(?:https?://)?(?:www\\.)?[a-z0-9][a-z0-9.-]+\\.(?:co\\.kr|or\\.kr|go\\.kr|com|net|org|kr|io|ai|biz)(?:/[^\\s]*)?");
     private static final Pattern PHONE=Pattern.compile("(?<![\\dA-Za-z])(?:\\+82[ .-]*)?\\(?0?\\d{1,3}\\)?[ .-]*\\d{3,4}[ .-]+\\d{4}(?!\\d)|(?<!\\d)(?:0\\d{8,10})(?!\\d)");
     private static final String[] TITLES={"대표변호사","대표이사","부회장","부사장","부팀장","부지점장","부장대우","본부장","센터장","지점장","대표","회장","사장","전무","상무","이사","실장","팀장","부장","차장","과장","대리","주임","사원","교수","박사","원장","국장","소장","변호사","회계사","세무사"};
-    private static final String[] COMPANIES={"주식회사","(주)","㈜","회사","법인","협회","재단","연구원","연구소","병원","의원","대학교","학교","은행","센터","시의회","구의회","부동산","corporation","corp","inc","ltd","company","컨설팅","건설","환경","산업","공업","상사","엔지니어링"};
+    private static final String[] COMPANIES={"주식회사","(주)","㈜","회사","법인","협회","재단","연구원","연구소","병원","의원","대학교","학교","은행","센터","시의회","구의회","부동산","corporation","corp","inc","ltd","company","컨설팅","건설","환경","산업","공업","상사","엔지니어링","항공","전자","전기","기계","무역","정밀","정공"};
     private static final Pattern LABEL=Pattern.compile("(?i)(?:e-?mail|email|fax|facsimile|tel(?:ephone)?|mobile|h\\.?p\\.?|cell|phone|휴대폰|휴대전화|팩스|전화|b\\.?\\s*p\\.?|pager|호출기|삐삐)\\s*[:.：]?\\s*");
     private static final String SURNAMES="김이박최정강조윤장임한오서신권황안송전홍유고문양손배백허남심노하곽성차주우구민진지엄채원천방공현함변염여추도소석선설마길연위표명기반왕금옥육인맹제모탁국어은편용";
     public static Map<String,String> parse(String raw){
@@ -19,27 +19,31 @@ public final class OcrParser {
         Set<String> seen=new HashSet<>();int mi=1,pi=1,fi=1;String area="";
         for(String line:lines){Matcher m=Pattern.compile(PHONE.pattern()+"|(?<![\\dA-Za-z])\\d{3,4}[ .-]+\\d{4}(?!\\d)").matcher(line);String previousLabel="";int previousEnd=0;while(m.find()){
             String before=line.substring(previousEnd,m.start());Matcher labels=LABEL.matcher(before);String kind=previousLabel;while(labels.find())kind=labels.group().toLowerCase(Locale.ROOT);previousLabel=kind;previousEnd=m.end();String d=m.group().replaceAll("[^0-9]","");if(d.startsWith("82")&&d.length()>=11)d="0"+d.substring(2);if(d.length()>11)continue;boolean local=d.matches("[1-9]\\d{6,7}");if(local){if(kind.isEmpty())continue;if(!area.isEmpty())d=area+d;}else if(d.length()<9||!d.startsWith("0"))continue;if(!seen.add(d))continue;
-            boolean mobile=d.matches("01[016789]\\d{7,8}");String prefix=d.startsWith("02")?"02":d.substring(0,3);if(!mobile&&!local&&!d.startsWith("015"))area=prefix;
-            String p=local&&area.isEmpty()?d.substring(0,d.length()-4)+"-"+d.substring(d.length()-4):PhoneDisplay.format(d);if(kind.contains("pager")||kind.contains("호출기")||kind.contains("삐삐")||kind.replaceAll("[^a-z]","").equals("bp")||d.startsWith("015")){out.put("note2",(out.containsKey("note2")?out.get("note2")+"\n":"")+"호출기: "+p);}else if(kind.contains("fax")||kind.contains("팩스")||kind.contains("facsimile")){if(fi<=3)out.put("fax"+fi++,p);}else if(mobile){if(mi<=3)out.put("mobile"+mi++,p);}else if(pi<=3)out.put("phone"+pi++,p);
+            boolean mobile=d.matches("01[016789]\\d{7,8}");String prefix=d.startsWith("02")?"02":d.substring(0,3);if(!mobile&&!local&&!(d.startsWith("015")||d.startsWith("012")))area=prefix;
+            String p=local&&area.isEmpty()?d.substring(0,d.length()-4)+"-"+d.substring(d.length()-4):PhoneDisplay.format(d);if(kind.contains("pager")||kind.contains("호출기")||kind.contains("삐삐")||kind.replaceAll("[^a-z]","").equals("bp")||(d.startsWith("015")||d.startsWith("012"))){out.put("note2",(out.containsKey("note2")?out.get("note2")+"\n":"")+"호출기: "+p);}else if(kind.contains("fax")||kind.contains("팩스")||kind.contains("facsimile")){if(fi<=3)out.put("fax"+fi++,p);}else if(mobile){if(mi<=3)out.put("mobile"+mi++,p);}else if(pi<=3)out.put("phone"+pi++,p);
         }
         // Some cards print the area code only once: TEL (02) 1234-5678 / FAX 1234-5679.
         if(!area.isEmpty()){Matcher local=Pattern.compile("(?i)(?:FAX|팩스)\\s*[:.]?\\s*(\\d{3,4})[ -]+(\\d{4})(?!\\d)").matcher(line);while(local.find()){String d=area+local.group(1)+local.group(2);if(seen.add(d)&&fi<=3)out.put("fax"+fi++,PhoneDisplay.format(d));}}
         }
         String company="",title="",department="",address="",name="";int nameScore=-1;
+        for(String rawLine:normalized.split("[\\r\\n]+")){if(rawLine.matches(".*(?:株|會社|会社).*")){String reading=HanjaReading.convert(rawLine);if(companyCandidate(reading)){company=reading;break;}}}
+        // A standalone Han surname/name carries more evidence than a random Hangul word.
+        for(String rawLine:normalized.split("[\\r\\n]+")){String value=rawLine.replaceAll("代表[理理]事|代表|대표이사|대표|[A-Za-z. /·]+", "").trim();if(HanjaReading.isPersonalName(value)){name=HanjaReading.convert(value);nameScore=35;break;}}
         for(int i=0;i<lines.size();i++){String line=lines.get(i);if(addressLine(line)){if(address.isEmpty())address=strip(line,"주소|address");else if(i>0&&addressLine(lines.get(i-1)))address+=" "+line;continue;}if(contact(line)||slogan(line))continue;
-            if(company.isEmpty()&&any(line.replaceAll("\\s+",""),COMPANIES)&&!ContactReview.suspicious(line))company=line.matches("[가-힣](?:\\s+[가-힣]){2,}")?line.replaceAll("\\s+",""):line;
+            if(company.isEmpty()&&companyCandidate(line))company=line.matches("[가-힣](?:\\s+[가-힣]){2,}")?line.replaceAll("\\s+",""):line;
             if(title.isEmpty()){for(String t:TITLES)if(line.contains(t)){title=t;break;}}
         }
         for(String line:lines){if(contact(line)||addressLine(line)||placeWord(line)||slogan(line)||line.equals(company)||any(line,COMPANIES))continue;
             String remainder=line;for(String t:TITLES)remainder=remainder.replace(t," ");remainder=strip(remainder,"성명|이름|name").trim();
-            String candidate=remainder.replaceAll("[\\s·ㆍ]","");if(candidate.matches("[가-힣]{2,4}")&&!departmentWord(candidate)&&SURNAMES.indexOf(candidate.charAt(0))>=0){int score=(candidate.length()==3?15:8)+(line.matches(".*(?:성명|이름|(?i:name)).*")?12:0)+(line.equals(remainder)?4:0);if(score>nameScore){nameScore=score;name=candidate;}}
-            else for(String part:remainder.split("[ /·]+"))if(part.matches("[가-힣]{2,4}")&&!placeWord(part)&&!departmentWord(part)&&SURNAMES.indexOf(part.charAt(0))>=0&&(any(line,TITLES)||line.contains("성명")||line.contains("이름"))){if(nameScore<10){name=part;nameScore=10;}}
+            String candidate=remainder.replaceAll("[\\s·ㆍ]","");if(candidate.matches("[가-힣]{2,4}")&&!departmentWord(candidate)&&!nonName(candidate)&&SURNAMES.indexOf(candidate.charAt(0))>=0){int score=(candidate.length()==3?15:8)+(line.matches(".*(?:성명|이름|(?i:name)).*")?12:0)+(line.equals(remainder)?4:0);if(score>nameScore){nameScore=score;name=candidate;}}
+            else for(String part:remainder.split("[ /·]+"))if(part.matches("[가-힣]{2,4}")&&!placeWord(part)&&!departmentWord(part)&&!nonName(part)&&SURNAMES.indexOf(part.charAt(0))>=0&&(any(line,TITLES)||line.contains("성명")||line.contains("이름"))){if(nameScore<10){name=part;nameScore=10;}}
         }
         for(String line:lines){if(line.equals(company)||line.equals(name)||contact(line)||addressLine(line)||slogan(line))continue;String d=line;for(String t:TITLES)d=d.replace(t,"");d=d.replaceAll("^[ /·]+|[ /·]+$","").trim();if(!d.isEmpty()&&departmentWord(d)&&!placeWord(d)){department=d;break;}}
-        if(company.isEmpty())for(String line:lines){if(!line.equals(name)&&!line.equals(department)&&!contact(line)&&!addressLine(line)&&!placeWord(line)&&!slogan(line)&&!any(line,TITLES)&&!ContactReview.suspicious(line)&&line.length()>=2&&line.length()<=30){company=line;break;}}
+        if(company.isEmpty())for(String line:lines){if(!line.equals(name)&&!line.equals(department)&&!contact(line)&&!addressLine(line)&&!placeWord(line)&&!slogan(line)&&!any(line,TITLES)&&!ContactReview.suspicious(line)&&plausibleCompany(line)){company=line;break;}}
         company=cleanLogoCompany(company,normalized);put(out,"name",name);put(out,"company1",company);put(out,"department1",department);put(out,"title1",title);put(out,"address1",address);
+        if(company.isEmpty())out.put("_company_missing","회사명을 확실히 읽지 못했습니다.");
         if(!normalized.trim().isEmpty())out.put("note3","[명함 OCR 원문]\n"+raw.trim());
-        out.put("_review",name.isEmpty()?"이름을 찾지 못했습니다. 명함 사진에서 확인해 주세요.":"이름·회사·직위를 명함 사진과 비교해 주세요.");return out;
+        out.put("_review",name.isEmpty()?"이름을 찾지 못했습니다. 명함 사진에서 확인해 주세요.":(company.isEmpty()?"회사명을 찾지 못했습니다. 사진에서 확인해 주세요.":"인식 결과를 사진과 비교해 주세요."));return out;
     }
     static boolean companyCandidate(String text){String reading=HanjaReading.convert(text);return any(reading.replaceAll("\\s+",""),COMPANIES)&&!contact(reading)&&!addressLine(reading)&&!slogan(reading)&&!ContactReview.suspicious(reading);}
     public static String cleanLogoCompany(String company,String evidence){String compact=company.replaceAll("\\s+","");if(compact.equals("대구협은행")&&Pattern.compile("(?i)(?:@|www\\.)dgb\\.co\\.kr(?=$|[^\\w.-])").matcher(evidence).find())return "대구은행";return company;}
@@ -50,7 +54,19 @@ public final class OcrParser {
     private static boolean contact(String s){return EMAIL.matcher(s).find()||URL.matcher(s).find()||PHONE.matcher(s).find()||LABEL.matcher(s).find();}
     private static boolean slogan(String s){return s.length()>26||s.matches(".*(?:드립니다|합니다|하세요|현실로|당신|언제나|꿈을|믿음|함께하는|최선을).*")||s.contains("드립니다")||s.contains("합니다")||s.contains("꿈을")||s.contains("현실로")||s.contains("언제나");}
     private static boolean placeWord(String s){return s.matches(".*(?:특별시|광역시|서초구|중구|수성구|북구|남구|동구|서구|서울|대구|부산|경기도|공평로|서초동|[가-힣]+(?:구|군|동|로|길)\\s*\\d).*");}
-    private static boolean addressLine(String s){return s.matches(".*(?:특별시|광역시|특별자치|서울|대구|부산|경기|인천|대전|광주|울산|[가-힣]+(?:시|구|군|동|로|길)).*\\d.*")||s.matches(".*\\d.*(?:번길|번지|호|층).*");}
+    private static boolean addressLine(String s){
+        // Branch names plus TEL/FAX are contacts, not postal addresses.
+        if(contact(s))return false;
+        return s.matches(".*(?:특별시|광역시|특별자치|서울|대구|부산|경기|인천|대전|광주|울산|[가-힣]+(?:시|구|군|동|로|길)).*\\d.*")
+            ||s.matches(".*\\d.*(?:번길|번지|호|층).*")
+            ||s.matches("(?i).*(?:[A-Z]+[- ](?:DONG|GU|RO)|KOREA).*\\d.*");
+    }
+    private static boolean nonName(String s){return s.replaceAll("\\s+", "").matches(".*(?:연월일|년월일|성명|이름|연락처|전화|휴대폰|팩스|이메일|주소|우편|본사|지사|지점|서울|대구|부산|작성일|등록일|생년|년생|안내|담당|회사).*");}
+    private static boolean plausibleCompany(String s){
+        if(nonName(s)||s.matches(".*\\d.*"))return false;
+        return s.matches("[가-힣]{3,20}")&&!SURNAMES.contains(s.substring(0,1))
+            ||s.matches("[A-Za-z][A-Za-z .&-]{3,29}")&&!s.matches("(?i).*(?:TELEX|B\\.P|ASS[IT]|MANAGER|TAEGU|KOREA|ADDRESS).*");
+    }
     private static boolean departmentWord(String s){return s.matches(".*(?:본부|사업부|사업본부|연구소|센터|팀|부|과|실|지점|영업소|보험신탁)$");}
     private static String strip(String s,String labels){return s.replaceFirst("(?i)^\\s*(?:"+labels+")\\s*[:：]?\\s*","");}
     private static void put(Map<String,String> m,String k,String v){if(!v.isEmpty())m.put(k,v);}
