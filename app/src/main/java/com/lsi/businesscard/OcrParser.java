@@ -27,7 +27,7 @@ public final class OcrParser {
         }
         String company="",title="",department="",address="",name="";int nameScore=-1;
         for(int i=0;i<lines.size();i++){String line=lines.get(i);if(addressLine(line)){if(address.isEmpty())address=strip(line,"주소|address");else if(i>0&&addressLine(lines.get(i-1)))address+=" "+line;continue;}if(contact(line)||slogan(line))continue;
-            if(company.isEmpty()&&any(line,COMPANIES))company=line;
+            if(company.isEmpty()&&any(line,COMPANIES)&&!ContactReview.suspicious(line))company=line;
             if(title.isEmpty()){for(String t:TITLES)if(line.contains(t)){title=t;break;}}
         }
         for(String line:lines){if(contact(line)||addressLine(line)||placeWord(line)||slogan(line)||line.equals(company)||any(line,COMPANIES))continue;
@@ -36,7 +36,7 @@ public final class OcrParser {
             else for(String part:remainder.split("[ /·]+"))if(part.matches("[가-힣]{2,4}")&&!placeWord(part)&&!departmentWord(part)&&SURNAMES.indexOf(part.charAt(0))>=0&&(any(line,TITLES)||line.contains("성명")||line.contains("이름"))){if(nameScore<10){name=part;nameScore=10;}}
         }
         for(String line:lines){if(line.equals(company)||line.equals(name)||contact(line)||addressLine(line)||slogan(line))continue;String d=line;for(String t:TITLES)d=d.replace(t,"");d=d.replaceAll("^[ /·]+|[ /·]+$","").trim();if(!d.isEmpty()&&departmentWord(d)&&!placeWord(d)){department=d;break;}}
-        if(company.isEmpty())for(String line:lines){if(!line.equals(name)&&!line.equals(department)&&!contact(line)&&!addressLine(line)&&!placeWord(line)&&!slogan(line)&&!any(line,TITLES)&&line.length()>=2&&line.length()<=30){company=line;break;}}
+        if(company.isEmpty())for(String line:lines){if(!line.equals(name)&&!line.equals(department)&&!contact(line)&&!addressLine(line)&&!placeWord(line)&&!slogan(line)&&!any(line,TITLES)&&!ContactReview.suspicious(line)&&line.length()>=2&&line.length()<=30){company=line;break;}}
         company=cleanLogoCompany(company,normalized);put(out,"name",name);put(out,"company1",company);put(out,"department1",department);put(out,"title1",title);put(out,"address1",address);
         if(!normalized.trim().isEmpty())out.put("note3","[명함 OCR 원문]\n"+raw.trim());
         out.put("_review",name.isEmpty()?"이름을 찾지 못했습니다. 명함 사진에서 확인해 주세요.":"이름·회사·직위를 명함 사진과 비교해 주세요.");return out;

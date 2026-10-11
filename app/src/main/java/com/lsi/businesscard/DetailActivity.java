@@ -24,6 +24,7 @@ public class DetailActivity extends Activity {
         back.setOnClickListener(v->finish());edit.setOnClickListener(v->editCard());fav.setOnClickListener(v->{c.favorite=c.favorite==1?0:1;db.setFavorite(id,c.favorite==1);fav.setText(c.favorite==1?"★":"☆");});more.setOnClickListener(v->new AlertDialog.Builder(this).setTitle("명함 관리").setItems(new String[]{"정보 공유", "명함 삭제"},(d,w)->{if(w==0)shareMenu();else deleteCard();}).show());
         ScrollView sv=new ScrollView(this);root=new LinearLayout(this);root.setOrientation(LinearLayout.VERTICAL);root.setPadding(Ui.dp(this,16),Ui.dp(this,8),Ui.dp(this,16),Ui.dp(this,20));sv.addView(root);page.addView(sv,new LinearLayout.LayoutParams(-1,0,1));
         root.addView(Ui.text(this,nz(c.get("name"),"(이름 없음)"),24,true));addLine(join(" · ",c.get("company1"),c.get("department1"),c.get("title1")),16);if(!c.get("group_name").isEmpty())root.addView(Ui.badge(this,c.get("group_name")));
+        if(ContactReview.needsReview(c)){Button review=Ui.button(this,"인식 정보 확인 필요 · 수정");review.setTextColor(Color.rgb(160,95,12));review.setOnClickListener(v->editCard());root.addView(review);}
         addPhotos();section("연락처");
         for(String k:new String[]{"mobile1","mobile2","mobile3"})contactRow("휴대폰",c.get(k),0);
         for(String k:new String[]{"phone1","phone2","phone3"})contactRow("전화",c.get(k),1);
@@ -40,7 +41,7 @@ public class DetailActivity extends Activity {
         LinearLayout actions=new LinearLayout(this);Button contacts=Ui.primary(this,"연락처에 저장"),share=Ui.button(this,"공유");actions.addView(contacts,Ui.weight(1));actions.addView(share,Ui.weight(1));root.addView(Ui.gap(this,8));root.addView(actions);contacts.setOnClickListener(v->saveToContacts());share.setOnClickListener(v->shareMenu());Ui.setContentView(this,page);
     }
     private void editCard(){startActivity(new Intent(this,EditActivity.class).putExtra("id",id));}
-    private void deleteCard(){new AlertDialog.Builder(this).setTitle("명함 삭제").setMessage("이 명함과 사용하지 않는 해당 사진을 삭제할까요?").setNegativeButton("취소",null).setPositiveButton("삭제",(d,w)->{db.deleteWithUnusedImages(id);finish();}).show();}
+    private void deleteCard(){DeleteGuard.show(this,java.util.Collections.singletonList(db.get(id)),()->{db.deleteWithUnusedImages(id);finish();});}
     private void calendar(){Intent i=new Intent(Intent.ACTION_INSERT,android.provider.CalendarContract.Events.CONTENT_URI);i.putExtra(android.provider.CalendarContract.Events.TITLE,c.get("name")+" 연락 / 만남");i.putExtra(android.provider.CalendarContract.Events.EVENT_LOCATION,c.get("met_place"));i.putExtra(android.provider.CalendarContract.Events.DESCRIPTION,c.get("company1")+"\n"+nz(c.get("mobile1"),c.get("phone1"))+"\n"+c.get("meeting_notes"));safeStart(i,"달력 앱을 열 수 없습니다.");}
     private void contactRow(String label,String value,int kind){
         if(value==null||value.trim().isEmpty())return;String raw=value.trim();LinearLayout row=new LinearLayout(this);row.setGravity(Gravity.CENTER_VERTICAL);row.setPadding(0,Ui.dp(this,5),0,Ui.dp(this,5));
